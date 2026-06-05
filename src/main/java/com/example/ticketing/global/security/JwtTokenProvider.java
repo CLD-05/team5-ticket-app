@@ -18,7 +18,7 @@ import java.util.Date;
 @Component
 public class JwtTokenProvider {
 
-    @Value("${jwt.secret:secret-key-placeholder-at-least-32-characters-long}")
+    @Value("${jwt.secret}")
     private String secretKey;
 
     @Value("${jwt.expiration-ms:3600000}")
@@ -46,20 +46,19 @@ public class JwtTokenProvider {
                 .compact();
     }
 
-    public Authentication getAuthentication(String token) {
-        Claims claims = Jwts.parserBuilder()
+    public String getUserIdFromToken(String token) {
+        return Jwts.parserBuilder()
                 .setSigningKey(key)
                 .build()
                 .parseClaimsJws(token)
-                .getBody();
-
-        User principal = new User(claims.getSubject(), "", Collections.emptyList());
-        return new UsernamePasswordAuthenticationToken(principal, token, Collections.emptyList());
+                .getBody()
+                .getSubject();
     }
 
     public boolean validateToken(String token) {
         try {
             Jwts.parserBuilder().setSigningKey(key).build().parseClaimsJws(token);
+            // TODO: Redis 블랙리스트 체크 로직 추가 가능
             return true;
         } catch (Exception e) {
             return false;

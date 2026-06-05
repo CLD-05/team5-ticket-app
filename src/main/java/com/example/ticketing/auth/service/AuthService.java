@@ -29,7 +29,7 @@ public class AuthService {
             throw new BusinessException(ErrorCode.LOGIN_FAILED);
         }
 
-        String token = jwtTokenProvider.createToken(user.getId(), user.getEmail());
-        return new LoginResponse(token, user.getId(), user.getName());
+        String token = jwtTokenProvider.createToken(user.getUserId(), user.getEmail());
+        return new LoginResponse(token, user.getUserId(), user.getName());
     }
 }
