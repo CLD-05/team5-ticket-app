@@ -14,8 +14,11 @@ public enum ErrorCode {
     ACCESS_DENIED(HttpStatus.FORBIDDEN, "C004", "Access Denied"),
 
     // Auth
-    UNAUTHORIZED(HttpStatus.UNAUTHORIZED, "A001", "Unauthorized access"),
-    LOGIN_FAILED(HttpStatus.UNAUTHORIZED, "A002", "Login failed"),
+    UNAUTHORIZED(HttpStatus.UNAUTHORIZED, "A001", "인증에 실패했습니다."),
+    LOGIN_FAILED(HttpStatus.UNAUTHORIZED, "A002", "로그인에 실패했습니다."),
+    TOKEN_EXPIRED(HttpStatus.UNAUTHORIZED, "A003", "토큰이 만료되었습니다."),
+    TOKEN_INVALID(HttpStatus.UNAUTHORIZED, "A004", "유효하지 않은 토큰입니다."),
+    USER_NOT_FOUND(HttpStatus.NOT_FOUND, "A005", "사용자를 찾을 수 없습니다."),
 
     // Business
     SEAT_ALREADY_HELD(HttpStatus.CONFLICT, "B001", "이미 선택된 좌석입니다."),

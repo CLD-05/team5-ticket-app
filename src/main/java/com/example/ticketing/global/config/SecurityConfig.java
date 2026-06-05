@@ -28,6 +28,10 @@ public class SecurityConfig {
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers("/api/v1/auth/**", "/actuator/**").permitAll()
+                .requestMatchers("/api/v1/shows/**").permitAll()
+                .requestMatchers("/api/v1/queue/**").authenticated()
+                .requestMatchers("/api/v1/seats/**").authenticated()
+                .requestMatchers("/api/v1/bookings/**").authenticated()
                 .anyRequest().authenticated()
             )
             .addFilterBefore(new JwtAuthenticationFilter(jwtTokenProvider), UsernamePasswordAuthenticationFilter.class);
