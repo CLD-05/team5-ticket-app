@@ -21,17 +21,25 @@ public class QueueService {
     }
 
     public QueueStatusResponse getStatus(String userId) {
+        // 1. Check if token exists (user is active)
+        String token = redisTemplate.opsForValue().get("queue:token:" + userId);
+        if (token != null) {
+            return new QueueStatusResponse("ENTER", 0L, token);
+        }
+
+        // 2. Check position in waiting queue
         Long rank = redisTemplate.opsForZSet().rank(QUEUE_KEY, userId);
         if (rank == null) {
             throw new NotFoundException(ErrorCode.QUEUE_NOT_FOUND);
         }
 
-        return new QueueStatusResponse("WAITING", rank + 1);
+        return new QueueStatusResponse("WAITING", rank + 1, null);
     }
 
     public void leaveQueue(String userId) {
         redisTemplate.opsForZSet().remove(QUEUE_KEY, userId);
+        redisTemplate.delete("queue:token:" + userId);
     }
 
-    public record QueueStatusResponse(String status, Long position) {}
+    public record QueueStatusResponse(String status, Long position, String token) {}
 }

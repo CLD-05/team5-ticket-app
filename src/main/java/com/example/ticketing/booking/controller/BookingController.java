@@ -17,4 +17,20 @@ public class BookingController {
         var response = bookingService.requestBooking(seatId, userId);
         return ResponseEntity.accepted().body(response);
     }
+
+    @GetMapping("/status/{requestId}")
+    public ResponseEntity<?> getBookingStatus(@PathVariable String requestId) {
+        return ResponseEntity.ok(bookingService.getBookingStatus(requestId));
+    }
+
+    @GetMapping("/{bookingId}")
+    public ResponseEntity<?> getBooking(@PathVariable String bookingId) {
+        return ResponseEntity.ok(bookingService.getBookingDetails(bookingId));
+    }
+
+    @DeleteMapping("/{bookingId}")
+    public ResponseEntity<?> cancelBooking(@PathVariable String bookingId, @AuthenticationPrincipal String userId) {
+        bookingService.cancelBooking(bookingId, userId);
+        return ResponseEntity.ok().build();
+    }
 }

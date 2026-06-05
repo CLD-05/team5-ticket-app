@@ -1,5 +1,7 @@
 package com.example.ticketing.show.controller;
 
+import com.example.ticketing.seat.dto.SeatResponse;
+import com.example.ticketing.seat.service.SeatService;
 import com.example.ticketing.show.entity.Show;
 import com.example.ticketing.show.service.ShowService;
 import lombok.RequiredArgsConstructor;
@@ -17,6 +19,7 @@ import java.util.List;
 public class ShowController {
 
     private final ShowService showService;
+    private final SeatService seatService;
 
     @GetMapping
     public ResponseEntity<List<Show>> getShows() {
@@ -26,5 +29,10 @@ public class ShowController {
     @GetMapping("/{showId}")
     public ResponseEntity<Show> getShow(@PathVariable Long showId) {
         return ResponseEntity.ok(showService.findById(showId));
+    }
+
+    @GetMapping("/{showId}/seats")
+    public ResponseEntity<List<SeatResponse>> getShowSeats(@PathVariable Long showId) {
+        return ResponseEntity.ok(seatService.getSeatsForShow(showId));
     }
 }

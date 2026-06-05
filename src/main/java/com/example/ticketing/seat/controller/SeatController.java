@@ -17,4 +17,10 @@ public class SeatController {
         var response = seatService.holdSeat(seatId, userId);
         return ResponseEntity.ok(response);
     }
+
+    @DeleteMapping("/{seatId}/hold")
+    public ResponseEntity<?> releaseSeat(@PathVariable Long seatId, @AuthenticationPrincipal String userId) {
+        seatService.releaseSeat(seatId, userId);
+        return ResponseEntity.ok().build();
+    }
 }
