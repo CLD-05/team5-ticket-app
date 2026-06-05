@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>예매 처리 중</title>
+</head>
+<body>
+    <h2>예매 처리</h2>
+
+    <div>
+        <label>좌석 ID: <input type="number" id="seatId" value="3"></label>
+        <label>JWT 토큰: <input type="text" id="token" size="50" placeholder="eyJ..."></label>
+        <button onclick="requestBooking()">예매 요청</button>
+    </div>
+
+    <hr>
+    <div id="status">대기 중...</div>
+
+    <script>
+        let pollTimer = null;
+
+        async function requestBooking() {
+            const seatId = document.getElementById('seatId').value;
+            const token = document.getElementById('token').value;
+            setStatus('예매 요청 중...');
+
+            const res = await fetch('/api/v1/bookings?seatId=' + seatId, {
+                method: 'POST',
+                headers: { 'Authorization': 'Bearer ' + token }
+            });
+
+            if (res.status === 409) { setStatus('❌ 이미 선점되었거나 만료된 좌석입니다.'); return; }
+            if (!res.ok)            { setStatus('❌ 요청 실패 (' + res.status + ')'); return; }
+
+            const data = await res.json();
+            setStatus('처리 중... (requestId: ' + data.requestId + ')');
+            startPolling(data.requestId, token);
+        }
+
+        function startPolling(requestId, token) {
+            clearInterval(pollTimer);
+            pollTimer = setInterval(async () => {
+                const res = await fetch('/api/v1/bookings/status/' + requestId, {
+                    headers: { 'Authorization': 'Bearer ' + token }
+                });
+                const data = await res.json();
+                if (data.status === '예매 성공') {
+                    clearInterval(pollTimer);
+                    setStatus('✅ 예매 성공! 완료 페이지로 이동합니다...');
+                    setTimeout(() => location.href = '/booking/complete', 1000);
+                } else if (data.status === '처리중') {
+                    setStatus('⏳ 처리 중...');
+                } else {
+                    clearInterval(pollTimer);
+                    setStatus('❌ 예매 실패: ' + data.status);
+                }
+            }, 1000);
+        }
+
+        function setStatus(msg) { document.getElementById('status').innerText = msg; }
+    </script>
+</body>
+</html>

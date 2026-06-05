@@ -52,10 +52,10 @@ public class BookingWorker {
 
         User user = userRepository.findById(message.userId()).orElse(null);
         if (user == null) {
-			log.error("사용자를 찾을 수 없습니다. 사용자 : {}", message.userId)
+			log.error("사용자를 찾을 수 없습니다. 사용자 : {}", message.userId());
 			saveResult(message.requestId(), "예매 실패");
 			return;
-
+        }
         // 2. 상태 변경 (SOLD)
         try {
         	seat.sold();
