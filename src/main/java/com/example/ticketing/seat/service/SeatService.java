@@ -17,9 +17,16 @@ import java.time.Duration;
 public class SeatService {
     private final StringRedisTemplate redisTemplate;
     private final SeatRepository seatRepository;
+    // Queue Token 검증 적용 시 추가
+    // private final QueueService queueService;
     private static final Duration HOLD_TTL = Duration.ofMinutes(5);
 
     public SeatHoldResponse holdSeat(Long seatId, String userId) {
+        // Queue Token 검증 적용 시 메서드 인자에 String queueToken 추가
+        // Long showId = seatRepository.findShowIdBySeatId(seatId)
+        //         .orElseThrow(() -> new NotFoundException("좌석이 존재하지 않습니다."));
+        // queueService.validateQueueToken(queueToken, showId, userId);
+
         String key = "seat:" + seatId;
 
         // 1. Redis SET NX (Atomic Hold)
