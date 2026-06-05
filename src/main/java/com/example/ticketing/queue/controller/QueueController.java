@@ -4,7 +4,6 @@ import com.example.ticketing.queue.service.QueueService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.security.core.userdetails.User;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -15,20 +14,20 @@ public class QueueController {
 
     // 공연별 대기열에 사용자 진입
     @PostMapping("/join")
-    public ResponseEntity<?> join(@PathVariable Long showId, @AuthenticationPrincipal User principal) {
-        return ResponseEntity.ok(queueService.joinQueue(showId, principal.getUsername()));
+    public ResponseEntity<?> join(@PathVariable Long showId, @AuthenticationPrincipal String userId) {
+        return ResponseEntity.ok(queueService.joinQueue(showId, userId));
     }
 
     // 현재 사용자의 공연별 대기 순번 조회
     @GetMapping("/status")
-    public ResponseEntity<?> getStatus(@PathVariable Long showId, @AuthenticationPrincipal User principal) {
-        return ResponseEntity.ok(queueService.getStatus(showId, principal.getUsername()));
+    public ResponseEntity<?> getStatus(@PathVariable Long showId, @AuthenticationPrincipal String userId) {
+        return ResponseEntity.ok(queueService.getStatus(showId, userId));
     }
 
     // 공연별 대기열에서 사용자 이탈
     @DeleteMapping("/leave")
-    public ResponseEntity<?> leave(@PathVariable Long showId, @AuthenticationPrincipal User principal) {
-        queueService.leaveQueue(showId, principal.getUsername());
+    public ResponseEntity<?> leave(@PathVariable Long showId, @AuthenticationPrincipal String userId) {
+        queueService.leaveQueue(showId, userId);
         return ResponseEntity.ok().build();
     }
 }

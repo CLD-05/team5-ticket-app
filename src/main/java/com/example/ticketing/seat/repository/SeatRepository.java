@@ -13,4 +13,8 @@ public interface SeatRepository extends JpaRepository<Seat, Long> {
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select s from Seat s where s.id = :id")
     Optional<Seat> findByIdWithLock(@Param("id") Long id);
+
+    // Queue Token 검증 적용 시 seatId로 showId 조회
+    // @Query("select s.show.id from Seat s where s.id = :id")
+    // Optional<Long> findShowIdBySeatId(@Param("id") Long id);
 }

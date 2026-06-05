@@ -24,7 +24,10 @@ public enum ErrorCode {
     SEAT_ALREADY_HELD(HttpStatus.CONFLICT, "B001", "이미 선택된 좌석입니다."),
     SEAT_ALREADY_SOLD(HttpStatus.CONFLICT, "B002", "이미 판매된 좌석입니다."),
     HOLD_EXPIRED(HttpStatus.CONFLICT, "B003", "시간이 초과되어 좌석이 해제되었습니다."),
-    QUEUE_NOT_FOUND(HttpStatus.NOT_FOUND, "B004", "대기열 정보를 찾을 수 없습니다.");
+    QUEUE_NOT_FOUND(HttpStatus.NOT_FOUND, "B004", "대기열 정보를 찾을 수 없습니다."),
+    QUEUE_TOKEN_REQUIRED(HttpStatus.FORBIDDEN, "B005", "Queue Token이 필요합니다."),
+    INVALID_QUEUE_TOKEN(HttpStatus.FORBIDDEN, "B006", "유효하지 않은 Queue Token입니다."),
+    QUEUE_TOKEN_EXPIRED(HttpStatus.FORBIDDEN, "B007", "Queue Token이 만료되었습니다.");
 
     private final HttpStatus status;
     private final String code;

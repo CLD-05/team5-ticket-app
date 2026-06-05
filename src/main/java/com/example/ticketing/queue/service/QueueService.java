@@ -1,10 +1,12 @@
 package com.example.ticketing.queue.service;
 
+import com.example.ticketing.global.exception.BusinessException;
 import com.example.ticketing.global.exception.NotFoundException;
 import com.example.ticketing.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
+import org.springframework.util.StringUtils;
 
 import java.time.Duration;
 import java.time.Instant;
@@ -54,6 +56,17 @@ public class QueueService {
         // 사용자를 해당 공연의 대기열 ZSET에서 제거
         redisTemplate.opsForZSet().remove(waitingQueueKey(showId), userId);
         redisTemplate.delete(activeUserKey(showId, userId));
+    }
+
+    public void validateQueueToken(String token, Long showId, String userId) {
+        if (!StringUtils.hasText(token)) {
+            throw new BusinessException("Queue Token이 필요합니다.", ErrorCode.ACCESS_DENIED);
+        }
+
+        String savedTokenValue = redisTemplate.opsForValue().get(tokenKey(token));
+        if (!tokenValue(showId, userId).equals(savedTokenValue) || !isActiveUser(showId, userId)) {
+            throw new BusinessException("유효하지 않은 Queue Token입니다.", ErrorCode.ACCESS_DENIED);
+        }
     }
 
     private String waitingQueueKey(Long showId) {
