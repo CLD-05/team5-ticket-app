@@ -324,8 +324,6 @@
     <script th:inline="javascript">
         /*<![CDATA[*/
         const IS_MOCK = true;
-        
-        // 💡 서버에서 Model 객체로 넘겨준 실제 공연 ID가 자바스크립트 변수에 자동으로 꽂히도록 세팅했습니다.
         const performanceId = /*[[${performanceId}]]*/ 1;
         
         let countdownInterval = null;
@@ -338,7 +336,7 @@
         blocks.forEach(b => {
             for (let r = 1; r <= 8; r++) {
                 for (let c = 1; c <= 8; c++) {
-                    let isSold = (idCounter % 31 === 0);
+                    let isSold = (idCounter % 45 === 0); 
                     mockSeats.push({
                         seatId: idCounter++,
                         showId: performanceId,
@@ -356,7 +354,7 @@
         blocks.forEach(b => {
             for (let r = 1; r <= 6; r++) {
                 for (let c = 1; c <= 8; c++) {
-                    let isSold = (idCounter % 37 === 0);
+                    let isSold = (idCounter % 55 === 0); 
                     let grade = (r <= 3) ? 'R' : 'S';
                     let price = (r <= 3) ? 150000 : 120000;
                     mockSeats.push({
@@ -379,8 +377,7 @@
                 return;
             }
             try {
-                // 🎯 대표님이 새로 정의하신 QueryParam 주소 규칙(/api/v1/seats?performanceId=)에 맞춤 교정했습니다.
-                const response = await fetch(`/api/v1/seats?performanceId=${performanceId}`);
+                const response = await fetch(`/api/v1/shows/${performanceId}/seats`);
                 if (!response.ok) return;
                 const seats = await response.json();
                 renderSeats(seats);
@@ -411,8 +408,8 @@
                 div.title = seat.seatNumber;
 
                 div.onclick = () => {
-                    if (seat.status === 'AVAILABLE') {
-                        selectSeat(seat.seatId, seat.seatNumber);
+                    if (seat.status === 'AVAILABLE' || seat.status === 'HOLD') {
+                        requestSeatHold(seat.seatId, seat.seatNumber);
                     }
                 };
 
@@ -420,24 +417,60 @@
             });
         }
 
-        function selectSeat(seatId, seatNumber) {
-            if (countdownInterval) {
-                clearInterval(countdownInterval);
-                document.getElementById('timer').textContent = "05:00";
-            }
-
+        async function requestSeatHold(seatId, seatNumber) {
             if (IS_MOCK) {
+                if (currentSelectedSeatId === seatId) {
+                    mockSeats.forEach(s => { if(s.seatId === seatId) s.status = 'AVAILABLE'; });
+                    currentSelectedSeatId = null;
+                    if (countdownInterval) clearInterval(countdownInterval);
+                    document.getElementById('timer').textContent = "05:00";
+                    document.getElementById('status-bar').textContent = "좌석 선택이 취소되었습니다.";
+                    renderSeats(mockSeats);
+                    return;
+                }
+
                 mockSeats.forEach(s => { if(s.status === 'HOLD') s.status = 'AVAILABLE'; });
                 const seat = mockSeats.find(s => s.seatId === seatId);
                 if (seat) {
                     seat.status = 'HOLD';
                     currentSelectedSeatId = seatId;
                     document.getElementById('status-bar').textContent = `선택한 좌석: ${seatNumber}`;
+                    startTimer();
                     renderSeats(mockSeats);
                 }
-            } else {
+                return;
+            }
+
+            if (currentSelectedSeatId === seatId) {
+                try {
+                    const response = await fetch(`/api/v1/seats/${seatId}/hold`, { method: 'DELETE' });
+                    if (response.ok) {
+                        currentSelectedSeatId = null;
+                        if (countdownInterval) clearInterval(countdownInterval);
+                        document.getElementById('timer').textContent = "05:00";
+                        document.getElementById('status-bar').textContent = "좌석 선택이 취소되었습니다.";
+                        fetchSeats();
+                    }
+                } catch (error) {
+                    console.error(error);
+                }
+                return;
+            }
+
+            try {
+                const response = await fetch(`/api/v1/seats/${seatId}/hold`, { method: 'POST' });
+                if (response.status === 409) {
+                    alert('이미 다른 사용자가 선택 중인 좌석입니다.');
+                    return;
+                }
+                if (!response.ok) return;
+
                 currentSelectedSeatId = seatId;
                 document.getElementById('status-bar').textContent = `선택한 좌석: ${seatNumber}`;
+                startTimer();
+                fetchSeats();
+            } catch (error) {
+                console.error(error);
             }
         }
 
@@ -448,29 +481,22 @@
             }
 
             if (IS_MOCK) {
-                startTimer();
-                const seat = mockSeats.find(s => s.seatId === currentSelectedSeatId);
-                if (seat) {
-                    document.getElementById('status-bar').textContent = `선점 완료: ${seat.seatNumber} (결제 대기 중)`;
-                }
+                /* 💡 대표님 말씀대로 팝업 알림창(alert)을 완전히 지우고, 하단 상태바에 결제 대기 상태만 노출하며 다음 화면 전환 준비 상태로 깔끔하게 떨어지게 바꿨습니다. */
+                document.getElementById('status-bar').textContent = "결제 페이지로 이동 중입니다...";
                 return;
             }
 
             try {
-                // 🎯 대표님이 고치신 최상단 컨트롤러 URL 규칙(/api/v1/seats/{seatId}/hold)에 딱 들어맞습니다.
-                const response = await fetch(`/api/v1/seats/${currentSelectedSeatId}/hold`, {
-                    method: 'POST'
+                const response = await fetch('/api/v1/bookings', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ seatId: currentSelectedSeatId })
                 });
                 
-                if (response.status === 409) {
-                    alert('ERR_SEAT_ALREADY_TAKEN');
-                    return;
+                if (response.status === 202) {
+                    /* 나중에 실제 결제 화면 URL 경로로 넘겨줄 위치입니다 (예: location.href = '/checkout';) */
+                    document.getElementById('status-bar').textContent = "결제 요청이 접수되었습니다. 잠시만 기다려주세요.";
                 }
-                
-                if (!response.ok) return;
-                
-                startTimer();
-                fetchSeats();
             } catch (error) {
                 console.error(error);
             }
@@ -489,7 +515,7 @@
                     clearInterval(countdownInterval);
                     timerElement.textContent = "05:00";
                     document.getElementById('status-bar').textContent = "좌석을 선택해 주세요.";
-                    alert("좌석 선점 시간이 만료되어 선택이 강제 취소되었습니다.");
+                    alert("제한 시간이 만료되어 선택이 취소되었습니다.");
                     if (IS_MOCK) {
                         mockSeats.forEach(s => { if(s.status === 'HOLD') s.status = 'AVAILABLE'; });
                     }
@@ -508,6 +534,7 @@
         if (!IS_MOCK) {
             setInterval(fetchSeats, 1000);
         }
+        /*]]>*/
     </script>
 </body>
 </html>
