@@ -8,11 +8,13 @@ import java.util.UUID;
 @Entity
 @Table(name = "users")
 @Getter
-@NoArgsConstructor
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
+@AllArgsConstructor
+@Builder
 public class User {
     @Id
     @Column(name = "user_id", length = 36)
-    private String id;
+    private String userId;
 
     @Column(nullable = false, unique = true, length = 100)
     private String email;
@@ -23,24 +25,20 @@ public class User {
     @Column(nullable = false, length = 50)
     private String name;
 
-    @Column(name = "created_at", nullable = false)
+    @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
-
-    public User(String email, String password, String name) {
-        this.id = UUID.randomUUID().toString();
-        this.email = email;
-        this.password = password;
-        this.name = name;
-        this.createdAt = LocalDateTime.now();
-    }
 
     @PrePersist
     protected void onPrePersist() {
-        if (this.id == null) {
-            this.id = UUID.randomUUID().toString();
+        if (this.userId == null) {
+            this.userId = java.util.UUID.randomUUID().toString();
         }
         if (this.createdAt == null) {
             this.createdAt = LocalDateTime.now();
         }
+    }
+
+    public void updatePassword(String newPassword) {
+        this.password = newPassword;
     }
 }

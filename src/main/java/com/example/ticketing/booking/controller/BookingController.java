@@ -4,7 +4,6 @@ import com.example.ticketing.booking.service.BookingService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.security.core.userdetails.User;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -14,8 +13,8 @@ public class BookingController {
     private final BookingService bookingService;
 
     @PostMapping
-    public ResponseEntity<?> requestBooking(@RequestParam Long seatId, @AuthenticationPrincipal User principal) {
-        var response = bookingService.requestBooking(seatId, principal.getUsername());
+    public ResponseEntity<?> requestBooking(@RequestParam Long seatId, @AuthenticationPrincipal String userId) {
+        var response = bookingService.requestBooking(seatId, userId);
         return ResponseEntity.accepted().body(response);
     }
 }

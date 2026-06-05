@@ -17,10 +17,10 @@ public class UserController {
     private final UserRepository userRepository;
 
     @GetMapping("/me")
-    public ResponseEntity<UserResponse> getMe(@AuthenticationPrincipal org.springframework.security.core.userdetails.User principal) {
-        User user = userRepository.findById(principal.getUsername())
+    public ResponseEntity<UserResponse> getMe(@AuthenticationPrincipal String userId) {
+        User user = userRepository.findById(userId)
                 .orElseThrow();
-        return ResponseEntity.ok(new UserResponse(user.getId(), user.getEmail(), user.getName()));
+        return ResponseEntity.ok(new UserResponse(user.getUserId(), user.getEmail(), user.getName()));
     }
 
     public record UserResponse(String userId, String email, String name) {}
