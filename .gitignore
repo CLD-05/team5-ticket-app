@@ -37,4 +37,10 @@ Thumbs.db
 
 ### Logs ###
 *.log
+
+.classpath
+.factorypath
+.project
+.settings/
+.metadata/
 *.yml

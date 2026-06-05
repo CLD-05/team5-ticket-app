@@ -20,4 +20,9 @@ public class BookingController {
         var response = bookingService.requestBooking(seatId, userId);
         return ResponseEntity.accepted().body(response);
     }
+    
+    @GetMapping("/status/{requestId}")
+    public ResponseEntity<?> getStatus(@PathVariable String requestId) {
+    	return ResponseEntity.ok(bookingService.getBookingStatus(requestId));
+    }
 }
