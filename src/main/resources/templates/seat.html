@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="ko">
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
 <head>
     <meta charset="UTF-8">
     <title>Seat Selection Platform</title>
@@ -250,7 +250,7 @@
 
     <div class="window-wrapper">
         <div class="top-header">
-            <div class="title-area">좌석 선택 <span>test:제목</span></div>
+            <div class="title-area">좌석 선택 <span th:text="${showTitle}">공연 제목 대기 중</span></div>
         </div>
 
         <div class="main-body">
@@ -321,9 +321,13 @@
         <div class="bottom-status" id="status-bar">좌석을 선택해 주세요.</div>
     </div>
 
-    <script>
+    <script th:inline="javascript">
+        /*<![CDATA[*/
         const IS_MOCK = true;
-        const performanceId = 1;
+        
+        // 💡 서버에서 Model 객체로 넘겨준 실제 공연 ID가 자바스크립트 변수에 자동으로 꽂히도록 세팅했습니다.
+        const performanceId = /*[[${performanceId}]]*/ 1;
+        
         let countdownInterval = null;
         let currentSelectedSeatId = null;
 
@@ -331,14 +335,13 @@
         let idCounter = 1;
         const blocks = ['A', 'B', 'C'];
 
-        // 1층 좌석 생성 (매진 확률 축소)
         blocks.forEach(b => {
             for (let r = 1; r <= 8; r++) {
                 for (let c = 1; c <= 8; c++) {
-                    let isSold = (idCounter % 31 === 0); // 매진 좌석 대폭 축소
+                    let isSold = (idCounter % 31 === 0);
                     mockSeats.push({
                         seatId: idCounter++,
-                        showId: 1,
+                        showId: performanceId,
                         floor: 1,
                         block: b,
                         seatNumber: `1층 ${b}구역 ${r}열 ${c}번`,
@@ -350,16 +353,15 @@
             }
         });
 
-        // 2층 좌석 생성 (매진 확률 축소)
         blocks.forEach(b => {
             for (let r = 1; r <= 6; r++) {
                 for (let c = 1; c <= 8; c++) {
-                    let isSold = (idCounter % 37 === 0); // 매진 좌석 대폭 축소
+                    let isSold = (idCounter % 37 === 0);
                     let grade = (r <= 3) ? 'R' : 'S';
                     let price = (r <= 3) ? 150000 : 120000;
                     mockSeats.push({
                         seatId: idCounter++,
-                        showId: 1,
+                        showId: performanceId,
                         floor: 2,
                         block: b,
                         seatNumber: `2층 ${b}구역 ${r}열 ${c}번`,
@@ -377,7 +379,8 @@
                 return;
             }
             try {
-                const response = await fetch(`/api/v1/performances/${performanceId}/seats`);
+                // 🎯 대표님이 새로 정의하신 QueryParam 주소 규칙(/api/v1/seats?performanceId=)에 맞춤 교정했습니다.
+                const response = await fetch(`/api/v1/seats?performanceId=${performanceId}`);
                 if (!response.ok) return;
                 const seats = await response.json();
                 renderSeats(seats);
@@ -454,6 +457,7 @@
             }
 
             try {
+                // 🎯 대표님이 고치신 최상단 컨트롤러 URL 규칙(/api/v1/seats/{seatId}/hold)에 딱 들어맞습니다.
                 const response = await fetch(`/api/v1/seats/${currentSelectedSeatId}/hold`, {
                     method: 'POST'
                 });
