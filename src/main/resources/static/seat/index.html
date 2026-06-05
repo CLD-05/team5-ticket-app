@@ -1,0 +1,509 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>Seat Selection Platform</title>
+    <style>
+        body {
+            font-family: 'Dotum', 'Apple SD Gothic Neo', sans-serif;
+            background-color: #f4f4f4;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+            user-select: none;
+        }
+        .window-wrapper {
+            width: 1050px;
+            background-color: #ffffff;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+            display: flex;
+            flex-direction: column;
+            position: relative;
+        }
+        .top-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px 20px;
+            border-bottom: 2px solid #333333;
+            height: 25px;
+        }
+        .title-area {
+            font-size: 16px;
+            font-weight: bold;
+            color: #333333;
+        }
+        .title-area span {
+            color: #666666;
+            font-weight: normal;
+            margin-left: 10px;
+        }
+        .main-body {
+            display: flex;
+            height: 610px;
+        }
+        .map-area {
+            width: 780px;
+            background-color: #f9f9f9;
+            padding: 25px 20px 15px 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            overflow-y: auto;
+            border-right: 1px solid #e5e5e5;
+            box-sizing: border-box;
+        }
+        .stage-line {
+            width: 400px;
+            height: 25px;
+            background-color: #ffffff;
+            border: 1px solid #dddddd;
+            color: #999999;
+            font-size: 11px;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 35px;
+            letter-spacing: 5px;
+            text-indent: 5px;
+        }
+        .floor-section {
+            display: flex;
+            align-items: center;
+            width: 100%;
+            margin-bottom: 35px;
+            position: relative;
+            box-sizing: border-box;
+        }
+        .floor-badge {
+            position: absolute;
+            left: 15px;
+            width: 32px;
+            height: 32px;
+            background-color: #444444;
+            color: #ffffff;
+            border-radius: 50%;
+            font-size: 12px;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            z-index: 5;
+        }
+        .blocks-container {
+            display: flex;
+            justify-content: center;
+            width: 100%;
+            gap: 35px;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        .block {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .block-label {
+            font-size: 12px;
+            font-weight: bold;
+            color: #666666;
+            margin-bottom: 10px;
+        }
+        .seats-grid {
+            display: grid;
+            grid-template-columns: repeat(8, 20px);
+            gap: 3px;
+        }
+        .seat {
+            width: 20px;
+            height: 20px;
+            border: 1px solid #ffffff;
+            cursor: pointer;
+            box-sizing: border-box;
+            transition: transform 0.1s ease;
+        }
+        .seat:hover {
+            transform: scale(1.15);
+            z-index: 10;
+        }
+        .AVAILABLE-R { background-color: #8a2be2; }
+        .AVAILABLE-S { background-color: #00cd3c; }
+        .HOLD { background-color: #999999; }
+        .SOLD {
+            background-color: #e9ecef;
+            cursor: not-allowed;
+            border: 1px solid #dee2e6;
+        }
+        .SOLD:hover {
+            transform: none;
+        }
+        .console-line {
+            width: 200px;
+            height: 25px;
+            background-color: #ffffff;
+            border: 1px solid #dddddd;
+            color: #999999;
+            font-size: 11px;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-top: 5px;
+            letter-spacing: 3px;
+            text-indent: 3px;
+        }
+        .sidebar {
+            width: 270px;
+            background-color: #ffffff;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+        }
+        .sidebar-top {
+            padding: 20px;
+        }
+        #timer-box {
+            font-size: 24px;
+            font-weight: bold;
+            color: #666666;
+            text-align: center;
+            background-color: #f8f9fa;
+            border: 1px solid #eeeeee;
+            padding: 10px;
+            margin-bottom: 25px;
+            margin-top: 15px;
+        }
+        .legend-title {
+            font-size: 13px;
+            font-weight: bold;
+            color: #333333;
+            border-bottom: 1px solid #e5e5e5;
+            padding-bottom: 8px;
+            margin-bottom: 15px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .btn-refresh {
+            background-color: #f8f9fa;
+            border: 1px solid #dddddd;
+            padding: 3px 8px;
+            font-size: 10px;
+            font-weight: bold;
+            color: #555555;
+            cursor: pointer;
+            border-radius: 4px;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+        }
+        .btn-refresh:hover {
+            background-color: #222222;
+            color: #ffffff;
+            border-color: #222222;
+        }
+        .legend-item {
+            display: flex;
+            align-items: center;
+            margin-bottom: 12px;
+            font-size: 12px;
+            color: #333333;
+        }
+        .legend-box {
+            width: 16px;
+            height: 16px;
+            margin-right: 10px;
+        }
+        .legend-box.r-석 { background-color: #8a2be2; }
+        .legend-box.s-석 { background-color: #00cd3c; }
+        .legend-price {
+            margin-left: auto;
+            color: #666666;
+        }
+        .btn-complete {
+            width: 100%;
+            height: 60px;
+            background-color: #555555;
+            color: #ffffff;
+            border: none;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        .btn-complete:hover {
+            background-color: #333333;
+        }
+        .bottom-status {
+            background-color: #444444;
+            color: #ffffff;
+            padding: 15px 20px;
+            font-size: 14px;
+            font-weight: bold;
+            height: 18px;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="window-wrapper">
+        <div class="top-header">
+            <div class="title-area">좌석 선택 <span>test:제목</span></div>
+        </div>
+
+        <div class="main-body">
+            <div class="map-area">
+                <div class="stage-line">STAGE</div>
+                
+                <div class="floor-section">
+                    <div class="floor-badge">1F</div>
+                    <div class="blocks-container">
+                        <div class="block">
+                            <div class="block-label">A</div>
+                            <div class="seats-grid" id="grid-1-A"></div>
+                        </div>
+                        <div class="block">
+                            <div class="block-label">B</div>
+                            <div class="seats-grid" id="grid-1-B"></div>
+                        </div>
+                        <div class="block">
+                            <div class="block-label">C</div>
+                            <div class="seats-grid" id="grid-1-C"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="floor-section">
+                    <div class="floor-badge">2F</div>
+                    <div class="blocks-container">
+                        <div class="block">
+                            <div class="block-label">A</div>
+                            <div class="seats-grid" id="grid-2-A"></div>
+                        </div>
+                        <div class="block">
+                            <div class="block-label">B</div>
+                            <div class="seats-grid" id="grid-2-B"></div>
+                        </div>
+                        <div class="block">
+                            <div class="block-label">C</div>
+                            <div class="seats-grid" id="grid-2-C"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="console-line">CONSOLE</div>
+            </div>
+
+            <div class="sidebar">
+                <div class="sidebar-top">
+                    <div id="timer-box"><span id="timer">05:00</span></div>
+                    <div class="legend-title">
+                        <span>좌석등급/잔여석</span>
+                        <button class="btn-refresh" onclick="fetchSeats()">새로고침</button>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-box r-석"></div>
+                        <div>R석</div>
+                        <div class="legend-price">150,000원</div>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-box s-석"></div>
+                        <div>S석</div>
+                        <div class="legend-price">120,000원</div>
+                    </div>
+                </div>
+                <button class="btn-complete" onclick="clickComplete()">좌석 선택 완료</button>
+            </div>
+        </div>
+
+        <div class="bottom-status" id="status-bar">좌석을 선택해 주세요.</div>
+    </div>
+
+    <script>
+        const IS_MOCK = true;
+        const performanceId = 1;
+        let countdownInterval = null;
+        let currentSelectedSeatId = null;
+
+        let mockSeats = [];
+        let idCounter = 1;
+        const blocks = ['A', 'B', 'C'];
+
+        // 1층 좌석 생성 (매진 확률 축소)
+        blocks.forEach(b => {
+            for (let r = 1; r <= 8; r++) {
+                for (let c = 1; c <= 8; c++) {
+                    let isSold = (idCounter % 31 === 0); // 매진 좌석 대폭 축소
+                    mockSeats.push({
+                        seatId: idCounter++,
+                        showId: 1,
+                        floor: 1,
+                        block: b,
+                        seatNumber: `1층 ${b}구역 ${r}열 ${c}번`,
+                        price: 150000,
+                        status: isSold ? 'SOLD' : 'AVAILABLE',
+                        grade: 'R'
+                    });
+                }
+            }
+        });
+
+        // 2층 좌석 생성 (매진 확률 축소)
+        blocks.forEach(b => {
+            for (let r = 1; r <= 6; r++) {
+                for (let c = 1; c <= 8; c++) {
+                    let isSold = (idCounter % 37 === 0); // 매진 좌석 대폭 축소
+                    let grade = (r <= 3) ? 'R' : 'S';
+                    let price = (r <= 3) ? 150000 : 120000;
+                    mockSeats.push({
+                        seatId: idCounter++,
+                        showId: 1,
+                        floor: 2,
+                        block: b,
+                        seatNumber: `2층 ${b}구역 ${r}열 ${c}번`,
+                        price: price,
+                        status: isSold ? 'SOLD' : 'AVAILABLE',
+                        grade: grade
+                    });
+                }
+            }
+        });
+
+        async function fetchSeats() {
+            if (IS_MOCK) {
+                renderSeats(mockSeats);
+                return;
+            }
+            try {
+                const response = await fetch(`/api/v1/performances/${performanceId}/seats`);
+                if (!response.ok) return;
+                const seats = await response.json();
+                renderSeats(seats);
+            } catch (error) {
+                console.error(error);
+            }
+        }
+
+        function renderSeats(seats) {
+            blocks.forEach(b => {
+                document.getElementById(`grid-1-${b}`).innerHTML = '';
+                document.getElementById(`grid-2-${b}`).innerHTML = '';
+            });
+
+            seats.forEach(seat => {
+                const gridId = `grid-${seat.floor}-${seat.block}`;
+                const targetGrid = document.getElementById(gridId);
+                if (!targetGrid) return;
+
+                const div = document.createElement('div');
+                
+                if (seat.status === 'AVAILABLE') {
+                    div.className = `seat AVAILABLE-${seat.grade}`;
+                } else {
+                    div.className = `seat ${seat.status}`;
+                }
+                
+                div.title = seat.seatNumber;
+
+                div.onclick = () => {
+                    if (seat.status === 'AVAILABLE') {
+                        selectSeat(seat.seatId, seat.seatNumber);
+                    }
+                };
+
+                targetGrid.appendChild(div);
+            });
+        }
+
+        function selectSeat(seatId, seatNumber) {
+            if (countdownInterval) {
+                clearInterval(countdownInterval);
+                document.getElementById('timer').textContent = "05:00";
+            }
+
+            if (IS_MOCK) {
+                mockSeats.forEach(s => { if(s.status === 'HOLD') s.status = 'AVAILABLE'; });
+                const seat = mockSeats.find(s => s.seatId === seatId);
+                if (seat) {
+                    seat.status = 'HOLD';
+                    currentSelectedSeatId = seatId;
+                    document.getElementById('status-bar').textContent = `선택한 좌석: ${seatNumber}`;
+                    renderSeats(mockSeats);
+                }
+            } else {
+                currentSelectedSeatId = seatId;
+                document.getElementById('status-bar').textContent = `선택한 좌석: ${seatNumber}`;
+            }
+        }
+
+        async function clickComplete() {
+            if (!currentSelectedSeatId) {
+                alert("좌석을 먼저 선택해 주세요.");
+                return;
+            }
+
+            if (IS_MOCK) {
+                startTimer();
+                const seat = mockSeats.find(s => s.seatId === currentSelectedSeatId);
+                if (seat) {
+                    document.getElementById('status-bar').textContent = `선점 완료: ${seat.seatNumber} (결제 대기 중)`;
+                }
+                return;
+            }
+
+            try {
+                const response = await fetch(`/api/v1/seats/${currentSelectedSeatId}/hold`, {
+                    method: 'POST'
+                });
+                
+                if (response.status === 409) {
+                    alert('ERR_SEAT_ALREADY_TAKEN');
+                    return;
+                }
+                
+                if (!response.ok) return;
+                
+                startTimer();
+                fetchSeats();
+            } catch (error) {
+                console.error(error);
+            }
+        }
+
+        function startTimer() {
+            if (countdownInterval) clearInterval(countdownInterval);
+            
+            let timeRemaining = 300;
+            const timerElement = document.getElementById('timer');
+            
+            countdownInterval = setInterval(() => {
+                timeRemaining--;
+                
+                if (timeRemaining <= 0) {
+                    clearInterval(countdownInterval);
+                    timerElement.textContent = "05:00";
+                    document.getElementById('status-bar').textContent = "좌석을 선택해 주세요.";
+                    alert("좌석 선점 시간이 만료되어 선택이 강제 취소되었습니다.");
+                    if (IS_MOCK) {
+                        mockSeats.forEach(s => { if(s.status === 'HOLD') s.status = 'AVAILABLE'; });
+                    }
+                    currentSelectedSeatId = null;
+                    fetchSeats();
+                    return;
+                }
+                
+                const minutes = String(Math.floor(timeRemaining / 60)).padStart(2, '0');
+                const seconds = String(timeRemaining % 60).padStart(2, '0');
+                timerElement.textContent = `${minutes}:${seconds}`;
+            }, 1000);
+        }
+
+        fetchSeats();
+        if (!IS_MOCK) {
+            setInterval(fetchSeats, 1000);
+        }
+    </script>
+</body>
+</html>
