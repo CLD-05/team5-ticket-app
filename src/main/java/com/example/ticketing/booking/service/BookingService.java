@@ -17,8 +17,16 @@ import java.util.UUID;
 public class BookingService {
     private final StringRedisTemplate redisTemplate;
     private final SqsTemplate sqsTemplate;
+    // Queue Token 검증 적용 시 추가
+    // private final SeatRepository seatRepository;
+    // private final QueueService queueService;
 
     public BookingAcceptResponse requestBooking(Long seatId, String userId) {
+        // Queue Token 검증 적용 시 메서드 인자에 String queueToken 추가
+        // Long showId = seatRepository.findShowIdBySeatId(seatId)
+        //         .orElseThrow(() -> new NotFoundException("좌석이 존재하지 않습니다."));
+        // queueService.validateQueueToken(queueToken, showId, userId);
+
         String holdKey = "seat:" + seatId;
         String requestId = UUID.randomUUID().toString();
 
