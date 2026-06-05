@@ -1,36 +1,41 @@
 spring:
   datasource:
-    url: jdbc:mysql://localhost:3306/ticketing?useSSL=false&serverTimezone=UTC&characterEncoding=UTF-8
+    url: jdbc:mysql://localhost:3306/ticketing?allowPublicKeyRetrieval=true&useSSL=false&serverTimezone=Asia/Seoul&characterEncoding=UTF-8
     username: root
     password: password
     driver-class-name: com.mysql.cj.jdbc.Driver
+
   jpa:
     hibernate:
       ddl-auto: update
+    database-platform: org.hibernate.dialect.MySQLDialect
     show-sql: true
     properties:
       hibernate:
         format_sql: true
+    open-in-view: false
+
   data:
     redis:
       host: localhost
       port: 6379
+
   cloud:
     aws:
+      sqs:
+        enabled: false
       region:
         static: ap-northeast-2
       credentials:
         access-key: test-access-key
         secret-key: test-secret-key
-      sqs:
-        endpoint: http://localhost:4566 # LocalStack or AWS SQS endpoint
 
 jwt:
-  secret: c2VjcmV0LWtleS1wbGFjZWhvbGRlci1hdC1sZWFzdC0zMi1jaGFyYWN0ZXJzLWxvbmc= # Base64 encoded placeholder
+  secret: c2VjcmV0LWtleS1wbGFjZWhvbGRlci1hdC1sZWFzdC0zMi1jaGFyYWN0ZXJzLWxvbmc=
   expiration-ms: 3600000
 
 management:
   endpoints:
     web:
       exposure:
-        include: prometheus, health, info
+        include: prometheus,health,info

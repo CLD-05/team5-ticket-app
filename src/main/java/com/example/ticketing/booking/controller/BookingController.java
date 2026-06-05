@@ -12,25 +12,17 @@ import org.springframework.web.bind.annotation.*;
 public class BookingController {
     private final BookingService bookingService;
 
+    // Queue Token 검증 적용 시 X-Queue-Token 헤더를 추가로 받기
+    // @RequestHeader(value = "X-Queue-Token", required = false) String queueToken
     @PostMapping
     public ResponseEntity<?> requestBooking(@RequestParam Long seatId, @AuthenticationPrincipal String userId) {
+        // 적용 시: bookingService.requestBooking(seatId, userId, queueToken)
         var response = bookingService.requestBooking(seatId, userId);
         return ResponseEntity.accepted().body(response);
     }
-
+    
     @GetMapping("/status/{requestId}")
-    public ResponseEntity<?> getBookingStatus(@PathVariable String requestId) {
-        return ResponseEntity.ok(bookingService.getBookingStatus(requestId));
-    }
-
-    @GetMapping("/{bookingId}")
-    public ResponseEntity<?> getBooking(@PathVariable String bookingId) {
-        return ResponseEntity.ok(bookingService.getBookingDetails(bookingId));
-    }
-
-    @DeleteMapping("/{bookingId}")
-    public ResponseEntity<?> cancelBooking(@PathVariable String bookingId, @AuthenticationPrincipal String userId) {
-        bookingService.cancelBooking(bookingId, userId);
-        return ResponseEntity.ok().build();
+    public ResponseEntity<?> getStatus(@PathVariable String requestId) {
+    	return ResponseEntity.ok(bookingService.getBookingStatus(requestId));
     }
 }
