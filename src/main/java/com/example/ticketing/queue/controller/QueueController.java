@@ -8,24 +8,27 @@ import org.springframework.security.core.userdetails.User;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
-@RequestMapping("/api/v1/queue")
+@RequestMapping("/api/v1/shows/{showId}/queue")
 @RequiredArgsConstructor
 public class QueueController {
     private final QueueService queueService;
 
+    // 공연별 대기열에 사용자 진입
     @PostMapping("/join")
-    public ResponseEntity<?> join(@AuthenticationPrincipal User principal) {
-        return ResponseEntity.ok(queueService.joinQueue(principal.getUsername()));
+    public ResponseEntity<?> join(@PathVariable Long showId, @AuthenticationPrincipal User principal) {
+        return ResponseEntity.ok(queueService.joinQueue(showId, principal.getUsername()));
     }
 
+    // 현재 사용자의 공연별 대기 순번 조회
     @GetMapping("/status")
-    public ResponseEntity<?> getStatus(@AuthenticationPrincipal User principal) {
-        return ResponseEntity.ok(queueService.getStatus(principal.getUsername()));
+    public ResponseEntity<?> getStatus(@PathVariable Long showId, @AuthenticationPrincipal User principal) {
+        return ResponseEntity.ok(queueService.getStatus(showId, principal.getUsername()));
     }
 
+    // 공연별 대기열에서 사용자 이탈
     @DeleteMapping("/leave")
-    public ResponseEntity<?> leave(@AuthenticationPrincipal User principal) {
-        queueService.leaveQueue(principal.getUsername());
+    public ResponseEntity<?> leave(@PathVariable Long showId, @AuthenticationPrincipal User principal) {
+        queueService.leaveQueue(showId, principal.getUsername());
         return ResponseEntity.ok().build();
     }
 }
