@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+  <meta charset="UTF-8">
+  <title>Ticket Wave</title>
+
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: #f7f8fc;
+      color: #222;
+    }
+
+    .container {
+      width: 1180px;
+      margin: 0 auto;
+    }
+
+    .header {
+      background: #111827;
+      color: white;
+      padding: 18px 0;
+    }
+
+    .header-inner {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .logo {
+      font-size: 30px;
+      font-weight: 900;
+      color: #a78bfa;
+    }
+
+    .nav {
+      display: flex;
+      gap: 28px;
+      font-size: 15px;
+      color: #d1d5db;
+    }
+
+    .user-menu {
+      display: flex;
+      gap: 14px;
+      font-size: 14px;
+      color: #d1d5db;
+    }
+
+    .hero {
+      background: linear-gradient(135deg, #4f46e5, #7c3aed);
+      color: white;
+      padding: 75px 0;
+    }
+
+    .hero-inner {
+      display: flex;
+      justify-content: center;
+      text-align: center;
+    }
+
+    .hero-text h1 {
+      font-size: 52px;
+      margin: 0 0 18px;
+      line-height: 1.15;
+    }
+
+    .hero-text p {
+      font-size: 18px;
+      color: #e5e7eb;
+      margin-bottom: 30px;
+    }
+
+    .search-box {
+      width: 560px;
+      height: 58px;
+      background: white;
+      border-radius: 40px;
+      display: flex;
+      align-items: center;
+      padding: 0 22px;
+      margin: 0 auto;
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.18);
+    }
+
+    .search-box input {
+      border: none;
+      outline: none;
+      flex: 1;
+      font-size: 16px;
+    }
+
+    .search-box button {
+      border: none;
+      background: #4f46e5;
+      color: white;
+      border-radius: 30px;
+      padding: 11px 24px;
+      font-weight: bold;
+      cursor: pointer;
+    }
+
+    .category-section {
+      margin-top: 45px;
+    }
+
+    .section-title {
+      font-size: 26px;
+      font-weight: 900;
+      margin-bottom: 18px;
+    }
+
+    .category-grid {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: 16px;
+    }
+
+    .category-card {
+      background: white;
+      border-radius: 18px;
+      padding: 22px 10px;
+      text-align: center;
+      box-shadow: 0 8px 20px rgba(0, 0, 0, 0.06);
+      cursor: pointer;
+      transition: 0.2s;
+    }
+
+    .category-card:hover {
+      transform: translateY(-5px);
+    }
+
+    .category-icon {
+      font-size: 30px;
+      margin-bottom: 10px;
+    }
+
+    .category-name {
+      font-weight: 800;
+      color: #374151;
+    }
+
+    .show-section {
+      margin-top: 50px;
+    }
+
+    .show-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 22px;
+    }
+
+    .show-card {
+      background: white;
+      border-radius: 22px;
+      overflow: hidden;
+      box-shadow: 0 8px 20px rgba(0, 0, 0, 0.07);
+      cursor: pointer;
+      transition: 0.2s;
+    }
+
+    .show-card:hover {
+      transform: translateY(-6px);
+    }
+
+    .poster {
+      height: 230px;
+      background: linear-gradient(135deg, #ddd6fe, #c7d2fe);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      font-size: 34px;
+      font-weight: 900;
+      color: #4f46e5;
+    }
+
+    .show-info {
+      padding: 18px;
+    }
+
+    .show-category {
+      display: inline-block;
+      background: #f3f4f6;
+      color: #6b7280;
+      padding: 5px 10px;
+      border-radius: 14px;
+      font-size: 12px;
+      font-weight: bold;
+      margin-bottom: 10px;
+    }
+
+    .show-title {
+      font-size: 18px;
+      font-weight: 900;
+      margin-bottom: 8px;
+    }
+
+    .show-place {
+      color: #6b7280;
+      font-size: 14px;
+    }
+
+    .show-date {
+      color: #6b7280;
+      font-size: 13px;
+      margin-top: 6px;
+    }
+
+    .show-price {
+      margin-top: 14px;
+      color: #4f46e5;
+      font-weight: 900;
+      font-size: 17px;
+    }
+
+    .footer {
+      margin-top: 70px;
+      padding: 35px 0;
+      background: #111827;
+      color: #9ca3af;
+      text-align: center;
+    }
+  </style>
+</head>
+
+<body>
+
+  <header class="header">
+    <div class="container header-inner">
+      <div class="logo">Ticket Wave</div>
+
+      <nav class="nav">
+        <span>공연</span>
+        <span>뮤지컬</span>
+        <span>콘서트</span>
+        <span>전시</span>
+        <span>랭킹</span>
+        <span>이벤트</span>
+      </nav>
+
+      <div class="user-menu">
+        <span>로그인</span>
+        <span>회원가입</span>
+      </div>
+    </div>
+  </header>
+
+  <section class="hero">
+    <div class="container hero-inner">
+      <div class="hero-text">
+        <h1>
+          원하는 공연을<br>
+          가장 빠르게 찾아보세요
+        </h1>
+        <p>콘서트, 뮤지컬, 연극, 전시까지 한 번에 검색하고 예매하세요.</p>
+
+        <div class="search-box">
+          <input type="text" placeholder="공연명, 장소, 아티스트 검색">
+          <button>검색</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <main class="container">
+
+    <section class="category-section">
+      <div class="section-title">카테고리</div>
+
+      <div class="category-grid">
+        <div class="category-card">
+          <div class="category-icon">🎭</div>
+          <div class="category-name">연극</div>
+        </div>
+
+        <div class="category-card">
+          <div class="category-icon">🎵</div>
+          <div class="category-name">뮤지컬</div>
+        </div>
+
+        <div class="category-card">
+          <div class="category-icon">🎤</div>
+          <div class="category-name">콘서트</div>
+        </div>
+
+        <div class="category-card">
+          <div class="category-icon">🖼️</div>
+          <div class="category-name">전시</div>
+        </div>
+
+        <div class="category-card">
+          <div class="category-icon">🎪</div>
+          <div class="category-name">페스티벌</div>
+        </div>
+
+        <div class="category-card">
+          <div class="category-icon">👨‍👩‍👧</div>
+          <div class="category-name">키즈</div>
+        </div>
+
+        <div class="category-card">
+          <div class="category-icon">⚡</div>
+          <div class="category-name">타임세일</div>
+        </div>
+      </div>
+    </section>
+
+    <section class="show-section">
+      <div class="section-title">현재 예매 가능 공연</div>
+
+      <div class="show-grid">
+
+        <div class="show-card">
+          <div class="poster">LIVE</div>
+          <div class="show-info">
+            <div class="show-category">CONCERT</div>
+            <div class="show-title">아이유 콘서트</div>
+            <div class="show-place">KSPO DOME</div>
+            <div class="show-date">2026.07.01</div>
+            <div class="show-price">88,000원 ~</div>
+          </div>
+        </div>
+
+        <div class="show-card">
+          <div class="poster">MUSIC</div>
+          <div class="show-info">
+            <div class="show-category">MUSICAL</div>
+            <div class="show-title">뮤지컬 레베카</div>
+            <div class="show-place">블루스퀘어</div>
+            <div class="show-date">2026.08.01</div>
+            <div class="show-price">77,000원 ~</div>
+          </div>
+        </div>
+
+        <div class="show-card">
+          <div class="poster">PLAY</div>
+          <div class="show-info">
+            <div class="show-category">PLAY</div>
+            <div class="show-title">연극 옥탑방 고양이</div>
+            <div class="show-place">대학로 아트홀</div>
+            <div class="show-date">2026.08.12</div>
+            <div class="show-price">35,000원 ~</div>
+          </div>
+        </div>
+
+        <div class="show-card">
+          <div class="poster">ART</div>
+          <div class="show-info">
+            <div class="show-category">EXHIBITION</div>
+            <div class="show-title">빛의 전시회</div>
+            <div class="show-place">DDP</div>
+            <div class="show-date">2026.09.01</div>
+            <div class="show-price">20,000원 ~</div>
+          </div>
+        </div>
+
+        <div class="show-card">
+          <div class="poster">FESTA</div>
+          <div class="show-info">
+            <div class="show-category">FESTIVAL</div>
+            <div class="show-title">서울 뮤직 페스티벌</div>
+            <div class="show-place">올림픽공원</div>
+            <div class="show-date">2026.09.18</div>
+            <div class="show-price">99,000원 ~</div>
+          </div>
+        </div>
+
+        <div class="show-card">
+          <div class="poster">KIDS</div>
+          <div class="show-info">
+            <div class="show-category">KIDS</div>
+            <div class="show-title">어린이 마술쇼</div>
+            <div class="show-place">예술의전당</div>
+            <div class="show-date">2026.10.02</div>
+            <div class="show-price">25,000원 ~</div>
+          </div>
+        </div>
+
+        <div class="show-card">
+          <div class="poster">CLASSIC</div>
+          <div class="show-info">
+            <div class="show-category">CLASSIC</div>
+            <div class="show-title">서울 필하모닉</div>
+            <div class="show-place">롯데콘서트홀</div>
+            <div class="show-date">2026.10.15</div>
+            <div class="show-price">50,000원 ~</div>
+          </div>
+        </div>
+
+        <div class="show-card">
+          <div class="poster">DANCE</div>
+          <div class="show-info">
+            <div class="show-category">PERFORMANCE</div>
+            <div class="show-title">현대 무용 공연</div>
+            <div class="show-place">세종문화회관</div>
+            <div class="show-date">2026.11.01</div>
+            <div class="show-price">45,000원 ~</div>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+  </main>
+
+  <footer class="footer">
+    Ticket Wave © 2026 공연 예매 플랫폼
+  </footer>
+
+</body>
+
+</html>
