@@ -37,10 +37,6 @@ public class Seat {
     @Column(nullable = false, length = 20)
     private SeatStatus status = SeatStatus.AVAILABLE;
 
-    @Version
-    @Column(name = "version")
-    private Long version = 0L;
-
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
@@ -64,7 +60,6 @@ public class Seat {
         this.seatNumber = seatNumber;
         this.price = price;
         this.status = SeatStatus.AVAILABLE;
-        this.version = 0L;
     }
 
     public void hold() {
