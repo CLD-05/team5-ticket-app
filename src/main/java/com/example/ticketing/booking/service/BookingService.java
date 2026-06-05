@@ -49,6 +49,15 @@ public class BookingService {
 
         return new BookingAcceptResponse(requestId, "ACCEPTED");
     }
+    
+    public BookingStatusResponse getBookingStatus(String requestId) {
+    	String status = redisTemplate.opsForValue().get("result : " + requestId);
+    	if (status == null) {
+    		return new BookingStatusResponse(requestId, "처리중");
+    	}
+        return new BookingStatusResponse(requestId, status);
+    }
 
     public record BookingAcceptResponse(String requestId, String status) {}
+    public record BookingStatusResponse(String requestId, String status) {}
 }
