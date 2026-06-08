@@ -1,9 +1,12 @@
 package com.example.ticketing.show.service;
 
-import com.example.ticketing.show.dto.*;
-import com.example.ticketing.show.entity.*;
-import com.example.ticketing.show.repository.*;
-
+import com.example.ticketing.show.dto.SeatMapResponseDto;
+import com.example.ticketing.show.dto.ShowDetailResponseDto;
+import com.example.ticketing.show.dto.ShowListResponseDto;
+import com.example.ticketing.show.entity.SeatGrade;
+import com.example.ticketing.show.entity.Show;
+import com.example.ticketing.show.repository.SeatGradeRepository;
+import com.example.ticketing.show.repository.ShowRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -16,14 +19,12 @@ public class ShowService {
     private final ShowRepository showRepository;
     private final SeatGradeRepository seatGradeRepository;
 
-    public List<ShowListResponseDto> getShows(String keyword, String category) {
+    public List<ShowListResponseDto> getShows(String keyword) {
 
         List<Show> shows;
 
         if (keyword != null && !keyword.isBlank()) {
             shows = showRepository.findByTitleContainingIgnoreCase(keyword);
-        } else if (category != null && !category.isBlank()) {
-            shows = showRepository.findByCategory(category);
         } else {
             shows = showRepository.findAll();
         }
@@ -48,11 +49,10 @@ public class ShowService {
                 .orElseThrow(() ->
                         new IllegalArgumentException("공연을 찾을 수 없습니다."));
 
-        List<SeatGrade> seatGrades =
-                seatGradeRepository.findByShowId(showId);
+        List<SeatGrade> seatGrades = seatGradeRepository.findByShowId(showId);
 
         return SeatMapResponseDto.builder()
-                .showId(showId)
+                .showId(show.getShowId())
                 .venueName(show.getVenue())
                 .seatGrades(
                         seatGrades.stream()
