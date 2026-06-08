@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>마이페이지 - QueueTicket</title>
+  <link rel="stylesheet" th:href="@{/css/auth.css}">
+</head>
+<body>
+  <!-- Navigation Header -->
+  <nav class="navbar">
+    <a href="/" class="navbar-brand">QueueTicket</a>
+    <div class="navbar-menu">
+      <a href="/" class="navbar-link">공연 예매</a>
+      <button class="navbar-btn navbar-btn-outline" id="logoutBtn">로그아웃</button>
+    </div>
+  </nav>
+
+  <div class="mypage-container">
+    <div class="mypage-card">
+      <h2 class="mypage-title">마이페이지</h2>
+      
+      <div class="alert alert-danger" id="errorAlert"></div>
+
+      <div class="user-info-section" id="userInfo" style="display:none;">
+        <div class="info-label">사용자 ID</div>
+        <div class="info-value" id="userIdVal"></div>
+
+        <div class="info-label">이메일 계정</div>
+        <div class="info-value" id="emailVal"></div>
+
+        <div class="info-label">이름</div>
+        <div class="info-value" id="nameVal"></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Guard: Check token
+    const token = localStorage.getItem("accessToken");
+    if (!token) {
+        window.location.href = "/login";
+    }
+
+    document.addEventListener("DOMContentLoaded", async () => {
+        const errorAlert = document.getElementById("errorAlert");
+        const userInfo = document.getElementById("userInfo");
+        
+        try {
+            const response = await fetch("/api/v1/users/me", {
+                method: "GET",
+                headers: {
+                    "Authorization": `Bearer ${token}`
+                }
+            });
+            
+            if (response.ok) {
+                const data = await response.json();
+                document.getElementById("userIdVal").textContent = data.userId;
+                document.getElementById("emailVal").textContent = data.email;
+                document.getElementById("nameVal").textContent = data.name;
+                userInfo.style.display = "grid";
+            } else {
+                // If token invalid/expired, clear localStorage and redirect to login
+                localStorage.clear();
+                window.location.href = "/login";
+            }
+        } catch (error) {
+            errorAlert.textContent = "사용자 정보를 불러오는 데 실패했습니다. 서버 상태를 확인해주세요.";
+            errorAlert.style.display = "block";
+        }
+    });
+
+    document.getElementById("logoutBtn").addEventListener("click", () => {
+        localStorage.clear();
+        window.location.href = "/";
+    });
+  </script>
+</body>
+</html>

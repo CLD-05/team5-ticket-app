@@ -3,7 +3,6 @@ package com.example.ticketing.seat.service;
 import com.example.ticketing.global.exception.ConflictException;
 import com.example.ticketing.global.exception.ErrorCode;
 import com.example.ticketing.global.exception.NotFoundException;
-import com.example.ticketing.queue.service.QueueService;
 import com.example.ticketing.seat.dto.SeatResponseDto;
 import com.example.ticketing.seat.entity.Seat;
 import com.example.ticketing.seat.entity.SeatStatus;
@@ -22,13 +21,12 @@ import java.util.stream.Collectors;
 public class SeatService {
     private final StringRedisTemplate redisTemplate;
     private final SeatRepository seatRepository;
-    private final QueueService queueService;
+    // Queue Token 검증 적용 시 추가
+    // private final QueueService queueService;
     private static final Duration HOLD_TTL = Duration.ofMinutes(5);
 
     @Transactional(readOnly = true)
-    public List<SeatResponseDto> getSeats(Long showId, String userId, String queueToken) {
-        queueService.validateQueueToken(queueToken, showId, userId);
-
+    public List<SeatResponseDto> getSeats(Long showId) {
         return seatRepository.findByShowId(showId).stream().map(seat -> {
             SeatStatus status = seat.getStatus();
             if (status == SeatStatus.AVAILABLE && Boolean.TRUE.equals(redisTemplate.hasKey("seat:" + seat.getId()))) {
@@ -44,10 +42,11 @@ public class SeatService {
         }).collect(Collectors.toList());
     }
 
-    public SeatHoldResponse holdSeat(Long seatId, String userId, String queueToken) {
-        Long showId = seatRepository.findShowIdBySeatId(seatId)
-                .orElseThrow(() -> new NotFoundException("좌석이 존재하지 않습니다."));
-        queueService.validateQueueToken(queueToken, showId, userId);
+    public SeatHoldResponse holdSeat(Long seatId, String userId) {
+        // Queue Token 검증 적용 시 메서드 인자에 String queueToken 추가
+        // Long showId = seatRepository.findShowIdBySeatId(seatId)
+        //         .orElseThrow(() -> new NotFoundException("좌석이 존재하지 않습니다."));
+        // queueService.validateQueueToken(queueToken, showId, userId);
 
         String key = "seat:" + seatId;
 

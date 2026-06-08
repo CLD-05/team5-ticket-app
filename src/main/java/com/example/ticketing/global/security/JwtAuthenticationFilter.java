@@ -2,6 +2,7 @@ package com.example.ticketing.global.security;
 
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
+import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
@@ -23,12 +24,20 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             throws ServletException, IOException {
         String token = resolveToken(request);
 
-        if (token != null && jwtTokenProvider.validateToken(token)) {
-            String userId = jwtTokenProvider.getUserIdFromToken(token);
+        if (token != null) {
+            try {
+                if (jwtTokenProvider.validateToken(token)) {
+                    String userId = jwtTokenProvider.getUserIdFromToken(token);
 
-            UsernamePasswordAuthenticationToken auth =
-                    new UsernamePasswordAuthenticationToken(userId, null, Collections.emptyList());
-            SecurityContextHolder.getContext().setAuthentication(auth);
+                    UsernamePasswordAuthenticationToken auth =
+                            new UsernamePasswordAuthenticationToken(userId, null, Collections.emptyList());
+                    SecurityContextHolder.getContext().setAuthentication(auth);
+                }
+            } catch (io.jsonwebtoken.ExpiredJwtException e) {
+                request.setAttribute("exception", com.example.ticketing.global.exception.ErrorCode.TOKEN_EXPIRED);
+            } catch (io.jsonwebtoken.JwtException | IllegalArgumentException e) {
+                request.setAttribute("exception", com.example.ticketing.global.exception.ErrorCode.TOKEN_INVALID);
+            }
         }
 
         filterChain.doFilter(request, response);
@@ -39,6 +48,15 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         if (StringUtils.hasText(bearerToken) && bearerToken.startsWith("Bearer ")) {
             return bearerToken.substring(7);
         }
+
+        if (request.getCookies() != null) {
+            for (Cookie cookie : request.getCookies()) {
+                if ("accessToken".equals(cookie.getName()) && StringUtils.hasText(cookie.getValue())) {
+                    return cookie.getValue();
+                }
+            }
+        }
+
         return null;
     }
 }

@@ -318,6 +318,7 @@
         if (pollTimer) {
           clearInterval(pollTimer);
         }
+        document.cookie = "queueToken=; path=/; Max-Age=0; SameSite=Lax";
         window.location.href = "/shows";
       }
     }
@@ -326,6 +327,8 @@
       if (data.status === "ACTIVE" || data.canEnter === true) {
         sessionStorage.setItem("queueToken", data.queueToken);
         sessionStorage.setItem("queueShowId", String(showId));
+        document.cookie = `accessToken=${getAccessToken()}; path=/; SameSite=Lax`;
+        document.cookie = `queueToken=${data.queueToken}; path=/; SameSite=Lax`;
         document.getElementById("rankValue").textContent = "0";
         document.getElementById("progressBar").style.width = "100%";
         document.getElementById("message").innerHTML = "입장이 가능합니다.<br>좌석 선택 페이지로 이동합니다.";

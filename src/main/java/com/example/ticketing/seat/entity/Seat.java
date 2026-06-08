@@ -6,8 +6,6 @@ import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
-import java.time.LocalDateTime;
-
 @Entity
 @Table(
     name = "seats",
@@ -37,34 +35,11 @@ public class Seat {
     @Column(nullable = false, length = 20)
     private SeatStatus status = SeatStatus.AVAILABLE;
 
-    @Version
-    @Column(name = "version")
-    private Long version = 0L;
-
-    @Column(name = "created_at", nullable = false, updatable = false)
-    private LocalDateTime createdAt;
-
-    @Column(name = "updated_at", nullable = false)
-    private LocalDateTime updatedAt;
-
-    @PrePersist
-    protected void onCreate() {
-        LocalDateTime now = LocalDateTime.now();
-        this.createdAt = now;
-        this.updatedAt = now;
-    }
-
-    @PreUpdate
-    protected void onUpdate() {
-        this.updatedAt = LocalDateTime.now();
-    }
-
     public Seat(Show show, String seatNumber, int price) {
         this.show = show;
         this.seatNumber = seatNumber;
         this.price = price;
         this.status = SeatStatus.AVAILABLE;
-        this.version = 0L;
     }
 
     public void hold() {
