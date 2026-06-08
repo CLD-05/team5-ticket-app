@@ -33,6 +33,7 @@ public class SecurityConfig {
                 .requestMatchers("/api/v1/auth/**", "/actuator/**").permitAll()
                 .requestMatchers("/api/v1/shows/*/queue/**").authenticated()
                 .requestMatchers("/api/v1/shows/**").permitAll()
+                .requestMatchers("/", "/shows/**", "/seat/**").permitAll()
                 .requestMatchers("/api/v1/queue/**").authenticated()
                 .requestMatchers("/api/v1/seats/**").authenticated()
                 .requestMatchers("/api/v1/bookings/**").authenticated()

@@ -19,7 +19,6 @@ public interface SeatRepository extends JpaRepository<Seat, Long> {
     @Query("SELECT s FROM Seat s WHERE s.id = :id")
     Optional<Seat> findByIdWithLock(@Param("id") Long id);
     
-    // Queue Token 검증 적용 시 seatId로 showId 조회
-    // @Query("SELECT s.show.showId FROM Seat s WHERE s.id = :id")
-    // Optional<Long> findShowIdBySeatId(@Param("id") Long id);
+    @Query("SELECT s.show.showId FROM Seat s WHERE s.id = :id")
+    Optional<Long> findShowIdBySeatId(@Param("id") Long id);
 }

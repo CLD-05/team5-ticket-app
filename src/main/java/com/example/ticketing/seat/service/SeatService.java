@@ -29,11 +29,9 @@ public class SeatService {
     public List<SeatResponseDto> getSeats(Long showId) {
         return seatRepository.findByShowId(showId).stream().map(seat -> {
             SeatStatus status = seat.getStatus();
-            
-            if (Boolean.TRUE.equals(redisTemplate.hasKey("seat:" + seat.getId()))) {
+            if (status == SeatStatus.AVAILABLE && Boolean.TRUE.equals(redisTemplate.hasKey("seat:" + seat.getId()))) {
                 status = SeatStatus.HOLD;
             }
-            
             return new SeatResponseDto(
                     seat.getId(),
                     showId,
@@ -44,20 +42,27 @@ public class SeatService {
         }).collect(Collectors.toList());
     }
 
-    @Transactional
     public SeatHoldResponse holdSeat(Long seatId, String userId) {
+        // Queue Token 검증 적용 시 메서드 인자에 String queueToken 추가
+        // Long showId = seatRepository.findShowIdBySeatId(seatId)
+        //         .orElseThrow(() -> new NotFoundException("좌석이 존재하지 않습니다."));
+        // queueService.validateQueueToken(queueToken, showId, userId);
+
+        String key = "seat:" + seatId;
+
+        Boolean success = redisTemplate.opsForValue()
+                .setIfAbsent(key, userId, HOLD_TTL);
+
+        if (!Boolean.TRUE.equals(success)) {
+            throw new ConflictException(ErrorCode.SEAT_ALREADY_HELD);
+        }
+
         Seat seat = seatRepository.findById(seatId)
                 .orElseThrow(() -> new NotFoundException("좌석이 존재하지 않습니다."));
 
         if (seat.getStatus() == SeatStatus.SOLD) {
-            throw new ConflictException(ErrorCode.SEAT_ALREADY_SOLD); 
-        }
-
-        String key = "seat:" + seatId;
-        Boolean success = redisTemplate.opsForValue().setIfAbsent(key, userId, HOLD_TTL);
-
-        if (!Boolean.TRUE.equals(success)) {
-            throw new ConflictException(ErrorCode.SEAT_ALREADY_HELD);
+            redisTemplate.delete(key);
+            throw new ConflictException(ErrorCode.SEAT_ALREADY_SOLD);
         }
 
         return new SeatHoldResponse(seatId, 300);
@@ -74,7 +79,7 @@ public class SeatService {
         String holdingUserId = redisTemplate.opsForValue().get(key);
 
         if (userId.equals(holdingUserId)) {
-            redisTemplate.delete(key); 
+            redisTemplate.delete(key);
         }
     }
 
