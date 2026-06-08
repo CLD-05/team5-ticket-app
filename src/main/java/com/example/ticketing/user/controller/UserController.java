@@ -1,5 +1,7 @@
 package com.example.ticketing.user.controller;
 
+import com.example.ticketing.global.exception.BusinessException;
+import com.example.ticketing.global.exception.ErrorCode;
 import com.example.ticketing.user.entity.User;
 import com.example.ticketing.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
@@ -19,7 +21,7 @@ public class UserController {
     @GetMapping("/me")
     public ResponseEntity<UserResponse> getMe(@AuthenticationPrincipal String userId) {
         User user = userRepository.findById(userId)
-                .orElseThrow();
+                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
         return ResponseEntity.ok(new UserResponse(user.getUserId(), user.getEmail(), user.getName()));
     }
 

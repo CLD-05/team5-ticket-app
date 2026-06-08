@@ -2,6 +2,7 @@ package com.example.ticketing.auth.controller;
 
 import com.example.ticketing.auth.dto.LoginRequest;
 import com.example.ticketing.auth.dto.LoginResponse;
+import com.example.ticketing.auth.dto.SignupRequest;
 import com.example.ticketing.auth.service.AuthService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -21,5 +22,11 @@ public class AuthController {
     @PostMapping("/login")
     public ResponseEntity<LoginResponse> login(@Valid @RequestBody LoginRequest request) {
         return ResponseEntity.ok(authService.login(request));
+    }
+
+    @PostMapping("/signup")
+    public ResponseEntity<Void> signup(@Valid @RequestBody SignupRequest request) {
+        authService.signup(request);
+        return ResponseEntity.ok().build();
     }
 }
