@@ -323,53 +323,24 @@
 
     <script th:inline="javascript">
         /*<![CDATA[*/
-        const IS_MOCK = true;
+        const IS_MOCK = false;
         const performanceId = /*[[${performanceId}]]*/ 1;
         
         let countdownInterval = null;
         let currentSelectedSeatId = null;
-
         let mockSeats = [];
-        let idCounter = 1;
-        const blocks = ['A', 'B', 'C'];
 
-        blocks.forEach(b => {
-            for (let r = 1; r <= 8; r++) {
-                for (let c = 1; c <= 8; c++) {
-                    let isSold = (idCounter % 45 === 0); 
-                    mockSeats.push({
-                        seatId: idCounter++,
-                        showId: performanceId,
-                        floor: 1,
-                        block: b,
-                        seatNumber: `1층 ${b}구역 ${r}열 ${c}번`,
-                        price: 150000,
-                        status: isSold ? 'SOLD' : 'AVAILABLE',
-                        grade: 'R'
-                    });
-                }
-            }
-        });
+        function getAccessToken() {
+            return localStorage.getItem("accessToken");
+        }
 
-        blocks.forEach(b => {
-            for (let r = 1; r <= 6; r++) {
-                for (let c = 1; c <= 8; c++) {
-                    let isSold = (idCounter % 55 === 0); 
-                    let grade = (r <= 3) ? 'R' : 'S';
-                    let price = (r <= 3) ? 150000 : 120000;
-                    mockSeats.push({
-                        seatId: idCounter++,
-                        showId: performanceId,
-                        floor: 2,
-                        block: b,
-                        seatNumber: `2층 ${b}구역 ${r}열 ${c}번`,
-                        price: price,
-                        status: isSold ? 'SOLD' : 'AVAILABLE',
-                        grade: grade
-                    });
-                }
-            }
-        });
+        function authHeaders() {
+            const token = getAccessToken();
+            return {
+                "Content-Type": "application/json",
+                "Authorization": token ? `Bearer ${token}` : ""
+            };
+        }
 
         async function fetchSeats() {
             if (IS_MOCK) {
@@ -377,7 +348,9 @@
                 return;
             }
             try {
-                const response = await fetch(`/api/v1/shows/${performanceId}/seats`);
+                const response = await fetch(`/api/v1/shows/${performanceId}/seats`, {
+                    headers: authHeaders()
+                });
                 if (!response.ok) return;
                 const seats = await response.json();
                 renderSeats(seats);
@@ -387,9 +360,12 @@
         }
 
         function renderSeats(seats) {
+            const blocks = ['A', 'B', 'C'];
             blocks.forEach(b => {
-                document.getElementById(`grid-1-${b}`).innerHTML = '';
-                document.getElementById(`grid-2-${b}`).innerHTML = '';
+                const g1 = document.getElementById(`grid-1-${b}`);
+                const g2 = document.getElementById(`grid-2-${b}`);
+                if (g1) g1.innerHTML = '';
+                if (g2) g2.innerHTML = '';
             });
 
             seats.forEach(seat => {
@@ -419,31 +395,15 @@
 
         async function requestSeatHold(seatId, seatNumber) {
             if (IS_MOCK) {
-                if (currentSelectedSeatId === seatId) {
-                    mockSeats.forEach(s => { if(s.seatId === seatId) s.status = 'AVAILABLE'; });
-                    currentSelectedSeatId = null;
-                    if (countdownInterval) clearInterval(countdownInterval);
-                    document.getElementById('timer').textContent = "05:00";
-                    document.getElementById('status-bar').textContent = "좌석 선택이 취소되었습니다.";
-                    renderSeats(mockSeats);
-                    return;
-                }
-
-                mockSeats.forEach(s => { if(s.status === 'HOLD') s.status = 'AVAILABLE'; });
-                const seat = mockSeats.find(s => s.seatId === seatId);
-                if (seat) {
-                    seat.status = 'HOLD';
-                    currentSelectedSeatId = seatId;
-                    document.getElementById('status-bar').textContent = `선택한 좌석: ${seatNumber}`;
-                    startTimer();
-                    renderSeats(mockSeats);
-                }
                 return;
             }
 
             if (currentSelectedSeatId === seatId) {
                 try {
-                    const response = await fetch(`/api/v1/seats/${seatId}/hold`, { method: 'DELETE' });
+                    const response = await fetch(`/api/v1/seats/${seatId}/hold`, { 
+                        method: 'DELETE',
+                        headers: authHeaders()
+                    });
                     if (response.ok) {
                         currentSelectedSeatId = null;
                         if (countdownInterval) clearInterval(countdownInterval);
@@ -458,7 +418,10 @@
             }
 
             try {
-                const response = await fetch(`/api/v1/seats/${seatId}/hold`, { method: 'POST' });
+                const response = await fetch(`/api/v1/seats/${seatId}/hold`, { 
+                    method: 'POST',
+                    headers: authHeaders()
+                });
                 if (response.status === 409) {
                     alert('이미 다른 사용자가 선택 중인 좌석입니다.');
                     return;
@@ -486,17 +449,24 @@
             }
 
             try {
-                const response = await fetch('/api/v1/bookings', {
+                const response = await fetch(`/api/v1/bookings?seatId=${currentSelectedSeatId}`, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ seatId: currentSelectedSeatId })
+                    headers: authHeaders()
                 });
                 
                 if (response.status === 202) {
-                    document.getElementById('status-bar').textContent = "결제 요청이 접수되었습니다. 잠시만 기다려주세요.";
+                    const data = await response.json();
+                    document.getElementById('status-bar').textContent = "결제 요청이 접수되었습니다. 대기 페이지로 이동합니다...";
+                    setTimeout(() => {
+                        window.location.href = `/booking/process?requestId=${data.requestId}`;
+                    }, 1000);
+                } else {
+                    const errData = await response.json();
+                    alert(errData.message || "예매 요청에 실패했습니다.");
                 }
             } catch (error) {
                 console.error(error);
+                alert("서버 연결에 실패했습니다.");
             }
         }
 
@@ -514,9 +484,6 @@
                     timerElement.textContent = "05:00";
                     document.getElementById('status-bar').textContent = "좌석을 선택해 주세요.";
                     alert("제한 시간이 만료되어 선택이 취소되었습니다.");
-                    if (IS_MOCK) {
-                        mockSeats.forEach(s => { if(s.status === 'HOLD') s.status = 'AVAILABLE'; });
-                    }
                     currentSelectedSeatId = null;
                     fetchSeats();
                     return;
@@ -530,7 +497,7 @@
 
         fetchSeats();
         if (!IS_MOCK) {
-            setInterval(fetchSeats, 1000);
+            setInterval(fetchSeats, 2000);
         }
         /*]]>*/
     </script>
