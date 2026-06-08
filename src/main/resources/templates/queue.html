@@ -230,7 +230,7 @@
 
       <div class="actions">
         <button class="leave-button" type="button" onclick="leaveQueue()">나가기</button>
-        <a class="seat-link hidden" id="seatLink" href="/seat/index.html">예매하기</a>
+        <a class="seat-link hidden" id="seatLink" th:href="@{/shows/{showId}/seat(showId=${showId})}">예매하기</a>
       </div>
     </section>
   </main>

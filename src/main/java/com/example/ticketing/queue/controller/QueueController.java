@@ -18,6 +18,12 @@ public class QueueController {
         return ResponseEntity.ok(queueService.joinQueue(showId, userId));
     }
 
+    // 예매 진입 시 대기열 화면이 필요한지 먼저 판단
+    @PostMapping("/enter")
+    public ResponseEntity<?> enter(@PathVariable Long showId, @AuthenticationPrincipal String userId) {
+        return ResponseEntity.ok(queueService.enterQueue(showId, userId));
+    }
+
     // 현재 사용자의 공연별 대기 순번 조회
     @GetMapping("/status")
     public ResponseEntity<?> getStatus(@PathVariable Long showId, @AuthenticationPrincipal String userId) {
