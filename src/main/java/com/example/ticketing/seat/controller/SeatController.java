@@ -25,13 +25,18 @@ public class SeatController {
 
     private final SeatService seatService;
 
-    @GetMapping("/performances/{id}/seats")
-    public ResponseEntity<List<SeatResponseDto>> getSeats(@PathVariable("id") Long id) {
+    @GetMapping({"/performances/{id}/seats", "/shows/{id}/seats"})
+    public ResponseEntity<List<SeatResponseDto>> getSeats(
+            @PathVariable("id") Long id
+    ) {
         return ResponseEntity.ok(seatService.getSeats(id));
     }
 
     @PostMapping("/seats/{seatId}/hold")
-    public ResponseEntity<?> holdSeat(@PathVariable Long seatId, @AuthenticationPrincipal String userId) {
+    public ResponseEntity<?> holdSeat(
+            @PathVariable Long seatId,
+            @AuthenticationPrincipal String userId
+    ) {
         var response = seatService.holdSeat(seatId, userId);
         return ResponseEntity.ok(response);
     }

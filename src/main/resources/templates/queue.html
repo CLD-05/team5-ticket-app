@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Ticket Wave 대기열</title>
+
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: Arial, sans-serif;
+      background: #ffffff;
+      color: #222222;
+    }
+
+    .queue-page {
+      width: min(980px, calc(100% - 40px));
+      min-height: 100vh;
+      margin: 0 auto;
+      padding: 42px 0 36px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .queue-box {
+      width: 100%;
+      text-align: center;
+    }
+
+    .title {
+      margin: 0 0 34px;
+      font-size: 56px;
+      line-height: 1.1;
+      font-weight: 500;
+      letter-spacing: 0;
+    }
+
+    .rank {
+      margin: 0;
+      font-size: 156px;
+      line-height: 1;
+      font-weight: 900;
+      letter-spacing: 0;
+    }
+
+    .progress {
+      width: min(860px, 100%);
+      height: 76px;
+      margin: 58px auto 66px;
+      background: #e5e5e5;
+      border-radius: 999px;
+      overflow: hidden;
+    }
+
+    .progress-bar {
+      width: 1%;
+      height: 100%;
+      background: #d71920;
+      border-radius: 999px 0 0 999px;
+      transition: width 0.3s ease;
+    }
+
+    .message {
+      margin: 0;
+      font-size: 36px;
+      line-height: 1.55;
+      font-weight: 700;
+    }
+
+    .warning {
+      margin: 46px 0 0;
+      font-size: 36px;
+      line-height: 1.5;
+      font-weight: 900;
+    }
+
+    .warning-icon {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 48px;
+      height: 48px;
+      margin-right: 10px;
+      border-radius: 50%;
+      background: #252525;
+      color: #ffffff;
+      font-size: 34px;
+      font-weight: 900;
+      vertical-align: 4px;
+    }
+
+    .actions {
+      margin-top: 34px;
+      display: flex;
+      justify-content: center;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    button,
+    .seat-link {
+      min-width: 150px;
+      height: 48px;
+      border: 0;
+      border-radius: 6px;
+      padding: 0 20px;
+      font-size: 16px;
+      font-weight: 900;
+      cursor: pointer;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .leave-button {
+      background: #222222;
+      color: #ffffff;
+    }
+
+    .seat-link {
+      background: #d71920;
+      color: #ffffff;
+    }
+
+    .hidden {
+      display: none;
+    }
+
+    .login-box {
+      max-width: 620px;
+      margin: 0 auto;
+      padding: 46px 28px;
+      border: 1px solid #eeeeee;
+      border-radius: 8px;
+      background: #ffffff;
+    }
+
+    .login-title {
+      margin: 0 0 16px;
+      font-size: 42px;
+      font-weight: 900;
+    }
+
+    .login-message {
+      margin: 0;
+      color: #555555;
+      font-size: 22px;
+      line-height: 1.5;
+      font-weight: 700;
+    }
+
+    @media (max-width: 720px) {
+      .queue-page {
+        padding: 28px 0;
+      }
+
+      .title {
+        font-size: 34px;
+        margin-bottom: 28px;
+      }
+
+      .rank {
+        font-size: 84px;
+      }
+
+      .progress {
+        height: 48px;
+        margin: 40px auto 44px;
+      }
+
+      .message,
+      .warning {
+        font-size: 22px;
+      }
+
+      .warning-icon {
+        width: 34px;
+        height: 34px;
+        font-size: 24px;
+        vertical-align: 2px;
+      }
+
+      .login-title {
+        font-size: 30px;
+      }
+
+      .login-message {
+        font-size: 18px;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <main class="queue-page">
+    <section class="queue-box" id="loginRequiredBox">
+      <div class="login-box">
+        <h1 class="login-title">로그인 안됨</h1>
+        <p class="login-message">예매 대기열에 접속하려면 먼저 로그인해야 합니다.</p>
+      </div>
+    </section>
+
+    <section class="queue-box hidden" id="queueBox">
+      <h1 class="title">나의 대기순서</h1>
+
+      <p class="rank" id="rankValue">-</p>
+
+      <div class="progress">
+        <div class="progress-bar" id="progressBar"></div>
+      </div>
+
+      <p class="message" id="message">
+        현재 접속 인원이 많아 대기중입니다.<br>
+        잠시만 기다려주시면 예매하기 페이지로 연결됩니다.
+      </p>
+
+      <p class="warning" id="warning">
+        <span class="warning-icon">!</span>
+        새로고침 하거나 재접속 하시면<br>
+        대기순서가 초기화되어 대기시간이 더 길어집니다.
+      </p>
+
+      <div class="actions">
+        <button class="leave-button" type="button" onclick="leaveQueue()">나가기</button>
+        <a class="seat-link hidden" id="seatLink" href="/seat/index.html">예매하기</a>
+      </div>
+    </section>
+  </main>
+
+  <script th:inline="javascript">
+    const showId = [[${showId}]];
+    const pollIntervalMs = 1000;
+    let pollTimer = null;
+
+    document.addEventListener("DOMContentLoaded", async () => {
+      if (!getAccessToken()) {
+        showLoginRequired();
+        return;
+      }
+
+      showQueue();
+      await joinQueue();
+      pollTimer = setInterval(refreshStatus, pollIntervalMs);
+    });
+
+    function getAccessToken() {
+      return localStorage.getItem("accessToken");
+    }
+
+    function authHeaders() {
+      return {
+        Authorization: `Bearer ${getAccessToken()}`
+      };
+    }
+
+    function showLoginRequired() {
+      document.getElementById("loginRequiredBox").classList.remove("hidden");
+      document.getElementById("queueBox").classList.add("hidden");
+    }
+
+    function showQueue() {
+      document.getElementById("loginRequiredBox").classList.add("hidden");
+      document.getElementById("queueBox").classList.remove("hidden");
+    }
+
+    async function joinQueue() {
+      try {
+        const response = await fetch(`/api/v1/shows/${showId}/queue/join`, {
+          method: "POST",
+          headers: authHeaders()
+        });
+
+        if (!response.ok) {
+          await renderWaitingError(response);
+          return;
+        }
+
+        await refreshStatus();
+      } catch (error) {
+        renderWaitingError();
+      }
+    }
+
+    async function refreshStatus() {
+      try {
+        const response = await fetch(`/api/v1/shows/${showId}/queue/status`, {
+          method: "GET",
+          headers: authHeaders()
+        });
+
+        if (!response.ok) {
+          await renderWaitingError(response);
+          return;
+        }
+
+        const data = await response.json();
+        renderStatus(data);
+      } catch (error) {
+        renderWaitingError();
+      }
+    }
+
+    async function leaveQueue() {
+      try {
+        await fetch(`/api/v1/shows/${showId}/queue/leave`, {
+          method: "DELETE",
+          headers: authHeaders()
+        });
+      } finally {
+        if (pollTimer) {
+          clearInterval(pollTimer);
+        }
+        document.cookie = "queueToken=; path=/; Max-Age=0; SameSite=Lax";
+        window.location.href = "/shows";
+      }
+    }
+
+    function renderStatus(data) {
+      if (data.status === "ACTIVE" || data.canEnter === true) {
+        sessionStorage.setItem("queueToken", data.queueToken);
+        sessionStorage.setItem("queueShowId", String(showId));
+        document.cookie = `accessToken=${getAccessToken()}; path=/; SameSite=Lax`;
+        document.cookie = `queueToken=${data.queueToken}; path=/; SameSite=Lax`;
+        document.getElementById("rankValue").textContent = "0";
+        document.getElementById("progressBar").style.width = "100%";
+        document.getElementById("message").innerHTML = "입장이 가능합니다.<br>좌석 선택 페이지로 이동합니다.";
+        document.getElementById("warning").classList.add("hidden");
+        document.getElementById("seatLink").classList.remove("hidden");
+
+        if (pollTimer) {
+          clearInterval(pollTimer);
+        }
+        window.location.href = `/shows/${showId}/seat`;
+        return;
+      }
+
+      const position = data.position ?? "-";
+      document.getElementById("rankValue").textContent = position;
+      document.getElementById("progressBar").style.width = progressWidth(position);
+      document.getElementById("message").innerHTML = "현재 접속 인원이 많아 대기중입니다.<br>잠시만 기다려주시면 예매하기 페이지로 연결됩니다.";
+      document.getElementById("warning").classList.remove("hidden");
+      document.getElementById("seatLink").classList.add("hidden");
+    }
+
+    async function renderWaitingError(response) {
+      let message = "대기열 상태를 확인하지 못했습니다.<br>잠시 후 다시 시도해주세요.";
+
+      if (response) {
+        message = `대기열 상태를 확인하지 못했습니다. (${response.status})<br>잠시 후 다시 시도해주세요.`;
+
+        try {
+          const error = await response.json();
+          if (error.message) {
+            message = `${error.message} (${response.status})`;
+          }
+        } catch (error) {
+        }
+      }
+
+      document.getElementById("rankValue").textContent = "-";
+      document.getElementById("progressBar").style.width = "1%";
+      document.getElementById("message").innerHTML = message;
+    }
+
+    function progressWidth(position) {
+      const numericPosition = Number(position);
+      if (!Number.isFinite(numericPosition)) {
+        return "1%";
+      }
+
+      const width = Math.max(1, Math.min(100, 100 - numericPosition));
+      return `${width}%`;
+    }
+  </script>
+</body>
+
+</html>

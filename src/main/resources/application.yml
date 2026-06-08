@@ -1,6 +1,4 @@
 spring:
-  profiles:
-    active: local
   datasource:
     url: jdbc:mysql://localhost:3306/ticketing?allowPublicKeyRetrieval=true&useSSL=false&serverTimezone=Asia/Seoul&characterEncoding=UTF-8
     username: root
@@ -26,7 +24,6 @@ spring:
     aws:
       sqs:
         enabled: false
-        endpoint: http://localhost:4566
       region:
         static: ap-northeast-2
       credentials:
