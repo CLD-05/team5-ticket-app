@@ -26,6 +26,10 @@ out/
 ### VS Code ###
 .vscode/
 
+### AI TOOL ###
+.claude/
+.antigravitycli/
+
 ### OS ###
 .DS_Store
 Thumbs.db
@@ -44,3 +48,5 @@ Thumbs.db
 .settings/
 .metadata/
 *.yml
+!src/main/resources/application-local.yml
+!src/main/resources/application-docker.yml

@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="ko">
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
 <head>
     <meta charset="UTF-8">
     <title>Seat Selection Platform</title>
@@ -250,7 +250,7 @@
 
     <div class="window-wrapper">
         <div class="top-header">
-            <div class="title-area">좌석 선택 <span>test:제목</span></div>
+            <div class="title-area">좌석 선택 <span th:text="${showTitle}">공연 제목 대기 중</span></div>
         </div>
 
         <div class="main-body">
@@ -321,9 +321,11 @@
         <div class="bottom-status" id="status-bar">좌석을 선택해 주세요.</div>
     </div>
 
-    <script>
+    <script th:inline="javascript">
+        /*<![CDATA[*/
         const IS_MOCK = true;
-        const performanceId = 1;
+        const performanceId = /*[[${performanceId}]]*/ 1;
+        
         let countdownInterval = null;
         let currentSelectedSeatId = null;
 
@@ -331,14 +333,13 @@
         let idCounter = 1;
         const blocks = ['A', 'B', 'C'];
 
-        // 1층 좌석 생성 (매진 확률 축소)
         blocks.forEach(b => {
             for (let r = 1; r <= 8; r++) {
                 for (let c = 1; c <= 8; c++) {
-                    let isSold = (idCounter % 31 === 0); // 매진 좌석 대폭 축소
+                    let isSold = (idCounter % 45 === 0); 
                     mockSeats.push({
                         seatId: idCounter++,
-                        showId: 1,
+                        showId: performanceId,
                         floor: 1,
                         block: b,
                         seatNumber: `1층 ${b}구역 ${r}열 ${c}번`,
@@ -350,16 +351,15 @@
             }
         });
 
-        // 2층 좌석 생성 (매진 확률 축소)
         blocks.forEach(b => {
             for (let r = 1; r <= 6; r++) {
                 for (let c = 1; c <= 8; c++) {
-                    let isSold = (idCounter % 37 === 0); // 매진 좌석 대폭 축소
+                    let isSold = (idCounter % 55 === 0); 
                     let grade = (r <= 3) ? 'R' : 'S';
                     let price = (r <= 3) ? 150000 : 120000;
                     mockSeats.push({
                         seatId: idCounter++,
-                        showId: 1,
+                        showId: performanceId,
                         floor: 2,
                         block: b,
                         seatNumber: `2층 ${b}구역 ${r}열 ${c}번`,
@@ -377,7 +377,7 @@
                 return;
             }
             try {
-                const response = await fetch(`/api/v1/performances/${performanceId}/seats`);
+                const response = await fetch(`/api/v1/shows/${performanceId}/seats`);
                 if (!response.ok) return;
                 const seats = await response.json();
                 renderSeats(seats);
@@ -408,8 +408,8 @@
                 div.title = seat.seatNumber;
 
                 div.onclick = () => {
-                    if (seat.status === 'AVAILABLE') {
-                        selectSeat(seat.seatId, seat.seatNumber);
+                    if (seat.status === 'AVAILABLE' || seat.status === 'HOLD') {
+                        requestSeatHold(seat.seatId, seat.seatNumber);
                     }
                 };
 
@@ -417,24 +417,60 @@
             });
         }
 
-        function selectSeat(seatId, seatNumber) {
-            if (countdownInterval) {
-                clearInterval(countdownInterval);
-                document.getElementById('timer').textContent = "05:00";
-            }
-
+        async function requestSeatHold(seatId, seatNumber) {
             if (IS_MOCK) {
+                if (currentSelectedSeatId === seatId) {
+                    mockSeats.forEach(s => { if(s.seatId === seatId) s.status = 'AVAILABLE'; });
+                    currentSelectedSeatId = null;
+                    if (countdownInterval) clearInterval(countdownInterval);
+                    document.getElementById('timer').textContent = "05:00";
+                    document.getElementById('status-bar').textContent = "좌석 선택이 취소되었습니다.";
+                    renderSeats(mockSeats);
+                    return;
+                }
+
                 mockSeats.forEach(s => { if(s.status === 'HOLD') s.status = 'AVAILABLE'; });
                 const seat = mockSeats.find(s => s.seatId === seatId);
                 if (seat) {
                     seat.status = 'HOLD';
                     currentSelectedSeatId = seatId;
                     document.getElementById('status-bar').textContent = `선택한 좌석: ${seatNumber}`;
+                    startTimer();
                     renderSeats(mockSeats);
                 }
-            } else {
+                return;
+            }
+
+            if (currentSelectedSeatId === seatId) {
+                try {
+                    const response = await fetch(`/api/v1/seats/${seatId}/hold`, { method: 'DELETE' });
+                    if (response.ok) {
+                        currentSelectedSeatId = null;
+                        if (countdownInterval) clearInterval(countdownInterval);
+                        document.getElementById('timer').textContent = "05:00";
+                        document.getElementById('status-bar').textContent = "좌석 선택이 취소되었습니다.";
+                        fetchSeats();
+                    }
+                } catch (error) {
+                    console.error(error);
+                }
+                return;
+            }
+
+            try {
+                const response = await fetch(`/api/v1/seats/${seatId}/hold`, { method: 'POST' });
+                if (response.status === 409) {
+                    alert('이미 다른 사용자가 선택 중인 좌석입니다.');
+                    return;
+                }
+                if (!response.ok) return;
+
                 currentSelectedSeatId = seatId;
                 document.getElementById('status-bar').textContent = `선택한 좌석: ${seatNumber}`;
+                startTimer();
+                fetchSeats();
+            } catch (error) {
+                console.error(error);
             }
         }
 
@@ -445,28 +481,20 @@
             }
 
             if (IS_MOCK) {
-                startTimer();
-                const seat = mockSeats.find(s => s.seatId === currentSelectedSeatId);
-                if (seat) {
-                    document.getElementById('status-bar').textContent = `선점 완료: ${seat.seatNumber} (결제 대기 중)`;
-                }
+                document.getElementById('status-bar').textContent = "결제 페이지로 이동 중입니다...";
                 return;
             }
 
             try {
-                const response = await fetch(`/api/v1/seats/${currentSelectedSeatId}/hold`, {
-                    method: 'POST'
+                const response = await fetch('/api/v1/bookings', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ seatId: currentSelectedSeatId })
                 });
                 
-                if (response.status === 409) {
-                    alert('ERR_SEAT_ALREADY_TAKEN');
-                    return;
+                if (response.status === 202) {
+                    document.getElementById('status-bar').textContent = "결제 요청이 접수되었습니다. 잠시만 기다려주세요.";
                 }
-                
-                if (!response.ok) return;
-                
-                startTimer();
-                fetchSeats();
             } catch (error) {
                 console.error(error);
             }
@@ -485,7 +513,7 @@
                     clearInterval(countdownInterval);
                     timerElement.textContent = "05:00";
                     document.getElementById('status-bar').textContent = "좌석을 선택해 주세요.";
-                    alert("좌석 선점 시간이 만료되어 선택이 강제 취소되었습니다.");
+                    alert("제한 시간이 만료되어 선택이 취소되었습니다.");
                     if (IS_MOCK) {
                         mockSeats.forEach(s => { if(s.status === 'HOLD') s.status = 'AVAILABLE'; });
                     }
@@ -504,6 +532,7 @@
         if (!IS_MOCK) {
             setInterval(fetchSeats, 1000);
         }
+        /*]]>*/
     </script>
 </body>
 </html>

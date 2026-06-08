@@ -1,8 +1,10 @@
 spring:
+  profiles:
+    active: local
   datasource:
     url: jdbc:mysql://localhost:3306/ticketing?allowPublicKeyRetrieval=true&useSSL=false&serverTimezone=Asia/Seoul&characterEncoding=UTF-8
     username: root
-    password: 
+    password: password
     driver-class-name: com.mysql.cj.jdbc.Driver
 
   jpa:
@@ -20,16 +22,16 @@ spring:
       host: localhost
       port: 6379
 
-  spring:
-    cloud:
-      aws:
-        region:
-          static: ap-northeast-2
-        credentials:
-          access-key: test-access-key
-          secret-key: test-secret-key
-        sqs:
-          endpoint: http://localhost:4566
+  cloud:
+    aws:
+      sqs:
+        enabled: false
+        endpoint: http://localhost:4566
+      region:
+        static: ap-northeast-2
+      credentials:
+        access-key: test-access-key
+        secret-key: test-secret-key
 
 jwt:
   secret: c2VjcmV0LWtleS1wbGFjZWhvbGRlci1hdC1sZWFzdC0zMi1jaGFyYWN0ZXJzLWxvbmc=
