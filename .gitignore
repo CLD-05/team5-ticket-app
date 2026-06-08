@@ -26,6 +26,10 @@ out/
 ### VS Code ###
 .vscode/
 
+### AI TOOL ###
+.claude/
+.antigravitycli/
+
 ### OS ###
 .DS_Store
 Thumbs.db

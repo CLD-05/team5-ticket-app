@@ -1,5 +1,6 @@
 package com.example.ticketing.global.config;
 
+import com.example.ticketing.global.security.JwtAuthenticationEntryPoint;
 import com.example.ticketing.global.security.JwtAuthenticationFilter;
 import com.example.ticketing.global.security.JwtTokenProvider;
 import lombok.RequiredArgsConstructor;
@@ -20,6 +21,7 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 public class SecurityConfig {
 
     private final JwtTokenProvider jwtTokenProvider;
+    private final JwtAuthenticationEntryPoint jwtAuthenticationEntryPoint;
 
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
@@ -27,6 +29,7 @@ public class SecurityConfig {
             .csrf(AbstractHttpConfigurer::disable)
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
+                .requestMatchers("/login", "/signup", "/mypage", "/css/**", "/js/**").permitAll()
                 .requestMatchers("/api/v1/auth/**", "/actuator/**").permitAll()
                 .requestMatchers("/api/v1/shows/*/queue/**").authenticated()
                 .requestMatchers("/api/v1/shows/**").permitAll()
@@ -35,6 +38,7 @@ public class SecurityConfig {
                 .requestMatchers("/api/v1/bookings/**").authenticated()
                 .anyRequest().authenticated()
             )
+            .exceptionHandling(handler -> handler.authenticationEntryPoint(jwtAuthenticationEntryPoint))
             .addFilterBefore(new JwtAuthenticationFilter(jwtTokenProvider), UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
