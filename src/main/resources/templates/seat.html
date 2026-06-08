@@ -351,7 +351,14 @@
                 const response = await fetch(`/api/v1/shows/${performanceId}/seats`, {
                     headers: authHeaders()
                 });
-                if (!response.ok) return;
+                if (!response.ok) {
+                    if (response.status === 400 || response.status === 401) {
+                        const errData = await response.json().catch(() => ({}));
+                        alert(errData.message || "대기열 인증이 만료되었거나 유효하지 않습니다. 대기열로 이동합니다.");
+                        window.location.href = `/shows/${performanceId}/queue`;
+                    }
+                    return;
+                }
                 const seats = await response.json();
                 renderSeats(seats);
             } catch (error) {
