@@ -1,63 +1,155 @@
 <!DOCTYPE html>
-<html xmlns:th="http://www.thymeleaf.org">
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
 <head>
     <meta charset="UTF-8">
-    <title>예매 처리 중</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>결제 처리 중 - Ticket Wave</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background-color: #f7f8fc;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            color: #222;
+        }
+        .container {
+            text-align: center;
+            background: #ffffff;
+            padding: 40px 30px;
+            border-radius: 16px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.05);
+            max-width: 480px;
+            width: 90%;
+        }
+        .spinner {
+            width: 50px;
+            height: 50px;
+            border: 5px solid #e2e8f0;
+            border-top-color: #4f46e5;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 24px;
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        h2 {
+            font-size: 22px;
+            margin-bottom: 12px;
+            color: #111827;
+        }
+        p {
+            font-size: 14px;
+            color: #6b7280;
+            line-height: 1.6;
+            margin-bottom: 20px;
+        }
+        .status-badge {
+            display: inline-block;
+            background: #eef2ff;
+            color: #4f46e5;
+            padding: 8px 16px;
+            border-radius: 999px;
+            font-weight: 600;
+            font-size: 13px;
+        }
+        .error-message {
+            color: #ef4444;
+            background: #fef2f2;
+            padding: 12px;
+            border-radius: 8px;
+            font-size: 13px;
+            display: none;
+            margin-top: 15px;
+        }
+    </style>
 </head>
 <body>
-    <h2>예매 처리</h2>
 
-    <div>
-        <label>좌석 ID: <input type="number" id="seatId" value="3"></label>
-        <label>JWT 토큰: <input type="text" id="token" size="50" placeholder="eyJ..."></label>
-        <button onclick="requestBooking()">예매 요청</button>
+    <div class="container">
+        <div class="spinner" id="spinner"></div>
+        <h2 id="title">결제 승인 처리 중</h2>
+        <p id="description">
+            선택하신 좌석에 대한 최종 예매 확정 처리를 진행하고 있습니다.<br>
+            잠시만 대기해 주시면 완료 페이지로 자동 연결됩니다.
+        </p>
+        <div class="status-badge" id="status">⏳ 예매 접수 대기 중...</div>
+        <div class="error-message" id="errorMessage"></div>
     </div>
 
-    <hr>
-    <div id="status">대기 중...</div>
-
     <script>
+        document.addEventListener("DOMContentLoaded", () => {
+            const urlParams = new URLSearchParams(window.location.search);
+            const requestId = urlParams.get('requestId');
+            const token = localStorage.getItem("accessToken");
+
+            if (!requestId || !token) {
+                alert("비정상적인 접근입니다.");
+                window.location.href = "/";
+                return;
+            }
+
+            startPolling(requestId, token);
+        });
+
         let pollTimer = null;
 
-        async function requestBooking() {
-            const seatId = document.getElementById('seatId').value;
-            const token = document.getElementById('token').value;
-            setStatus('예매 요청 중...');
-
-            const res = await fetch('/api/v1/bookings?seatId=' + seatId, {
-                method: 'POST',
-                headers: { 'Authorization': 'Bearer ' + token }
-            });
-
-            if (res.status === 409) { setStatus('❌ 이미 선점되었거나 만료된 좌석입니다.'); return; }
-            if (!res.ok)            { setStatus('❌ 요청 실패 (' + res.status + ')'); return; }
-
-            const data = await res.json();
-            setStatus('처리 중... (requestId: ' + data.requestId + ')');
-            startPolling(data.requestId, token);
-        }
-
         function startPolling(requestId, token) {
+            const statusBadge = document.getElementById('status');
+            const errorMessage = document.getElementById('errorMessage');
+            const spinner = document.getElementById('spinner');
+            const title = document.getElementById('title');
+
             clearInterval(pollTimer);
+            
             pollTimer = setInterval(async () => {
-                const res = await fetch('/api/v1/bookings/status/' + requestId, {
-                    headers: { 'Authorization': 'Bearer ' + token }
-                });
-                const data = await res.json();
-                if (data.status === '예매 성공') {
-                    clearInterval(pollTimer);
-                    setStatus('✅ 예매 성공! 완료 페이지로 이동합니다...');
-                    setTimeout(() => location.href = '/booking/complete', 1000);
-                } else if (data.status === '처리중') {
-                    setStatus('⏳ 처리 중...');
-                } else {
-                    clearInterval(pollTimer);
-                    setStatus('❌ 예매 실패: ' + data.status);
+                try {
+                    const res = await fetch(`/api/v1/bookings/status/${requestId}`, {
+                        headers: { 'Authorization': `Bearer ${token}` }
+                    });
+                    
+                    if (!res.ok) {
+                        throw new Error(`서버 응답 오류 (${res.status})`);
+                    }
+
+                    const data = await res.json();
+                    
+                    if (data.status === '예매 성공') {
+                        clearInterval(pollTimer);
+                        statusBadge.style.background = '#ecfdf5';
+                        statusBadge.style.color = '#10b981';
+                        statusBadge.innerText = '✅ 예매 완료 성공!';
+                        title.innerText = '예매 완료 성공!';
+                        setTimeout(() => {
+                            window.location.href = '/booking/complete';
+                        }, 1200);
+                    } else if (data.status === '처리중') {
+                        statusBadge.innerText = '⏳ 예매 승인 대기 중...';
+                    } else {
+                        // 실패 시 처리
+                        clearInterval(pollTimer);
+                        spinner.style.display = 'none';
+                        statusBadge.style.background = '#fef2f2';
+                        statusBadge.style.color = '#ef4444';
+                        statusBadge.innerText = '❌ 예매 실패';
+                        
+                        errorMessage.innerText = `사유: ${data.status || '대기열 타임아웃 또는 선점 만료'}`;
+                        errorMessage.style.display = 'block';
+                        
+                        setTimeout(() => {
+                            window.location.href = '/';
+                        }, 5000);
+                    }
+                } catch (error) {
+                    console.error(error);
+                    statusBadge.innerText = '⚠️ 통신 지연 중...';
                 }
             }, 1000);
         }
-
-        function setStatus(msg) { document.getElementById('status').innerText = msg; }
     </script>
 </body>
 </html>

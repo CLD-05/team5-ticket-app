@@ -40,6 +40,29 @@ public class QueueService {
         return "JOINED";
     }
 
+    public synchronized QueueStatusResponse enterQueue(Long showId, String userId) {
+        cleanupExpiredActiveUsers(showId);
+
+        if (isActiveUser(showId, userId)) {
+            return new QueueStatusResponse("ACTIVE", null, true, issueQueueToken(showId, userId));
+        }
+
+        Long rank = redisTemplate.opsForZSet().rank(waitingQueueKey(showId), userId);
+        if (rank != null) {
+            return new QueueStatusResponse("WAITING", rank + 1, false, null);
+        }
+
+        if (canEnterImmediately(showId)) {
+            // 대기자가 없고 ACTIVE 여유가 있으면 대기열 화면 없이 바로 입장 토큰을 발급함
+            redisTemplate.opsForZSet().add(activeQueueKey(showId), userId, activeExpiresAt());
+            return new QueueStatusResponse("ACTIVE", null, true, issueQueueToken(showId, userId));
+        }
+
+        redisTemplate.opsForZSet().add(waitingQueueKey(showId), userId, Instant.now().toEpochMilli());
+        Long newRank = redisTemplate.opsForZSet().rank(waitingQueueKey(showId), userId);
+        return new QueueStatusResponse("WAITING", newRank == null ? null : newRank + 1, false, null);
+    }
+
     public synchronized QueueStatusResponse getStatus(Long showId, String userId) {
         cleanupExpiredActiveUsers(showId);
 
@@ -105,6 +128,10 @@ public class QueueService {
 
     private boolean isActiveUser(Long showId, String userId) {
         return redisTemplate.opsForZSet().score(activeQueueKey(showId), userId) != null;
+    }
+
+    private boolean canEnterImmediately(Long showId) {
+        return zSetSize(waitingQueueKey(showId)) == 0 && zSetSize(activeQueueKey(showId)) < maxActiveUsers;
     }
 
     private void cleanupExpiredActiveUsers(Long showId) {
