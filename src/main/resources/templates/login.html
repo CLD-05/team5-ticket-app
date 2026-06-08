@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>로그인 - QueueTicket</title>
+  <link rel="stylesheet" th:href="@{/css/auth.css}">
+</head>
+<body>
+  <div class="auth-container">
+    <div class="auth-card">
+      <div class="auth-header">
+        <a href="/" class="auth-logo">QueueTicket</a>
+        <div class="auth-subtitle">로그인하여 대기열 티켓을 발급받으세요.</div>
+      </div>
+
+      <div class="alert alert-danger" id="errorAlert"></div>
+
+      <form id="loginForm">
+        <div class="form-group">
+          <label class="form-label" for="email">이메일 주소</label>
+          <input class="form-input" type="email" id="email" required placeholder="example@email.com">
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="password">비밀번호</label>
+          <input class="form-input" type="password" id="password" required placeholder="••••••••">
+        </div>
+
+        <button class="auth-btn" type="submit">로그인</button>
+      </form>
+
+      <div class="auth-footer">
+        아직 회원이 아니신가요? <a class="auth-link" href="/signup">회원가입</a>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    document.getElementById("loginForm").addEventListener("submit", async function(event) {
+        event.preventDefault();
+        
+        const email = document.getElementById("email").value;
+        const password = document.getElementById("password").value;
+        const errorAlert = document.getElementById("errorAlert");
+        
+        errorAlert.style.display = "none";
+        
+        try {
+            const response = await fetch("/api/v1/auth/login", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify({ email, password })
+            });
+            
+            if (response.ok) {
+                const data = await response.json();
+                localStorage.setItem("accessToken", data.accessToken);
+                localStorage.setItem("userId", data.userId);
+                localStorage.setItem("userName", data.name);
+                
+                // Redirect back to main page
+                window.location.href = "/";
+            } else {
+                const errData = await response.json();
+                errorAlert.textContent = errData.message || "로그인에 실패했습니다. 이메일 또는 비밀번호를 확인하세요.";
+                errorAlert.style.display = "block";
+            }
+        } catch (error) {
+            errorAlert.textContent = "서버 연결에 실패했습니다. 나중에 다시 시도해주세요.";
+            errorAlert.style.display = "block";
+        }
+    });
+  </script>
+</body>
+</html>
