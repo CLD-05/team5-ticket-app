@@ -36,6 +36,16 @@ public class QueueTokenInterceptor implements HandlerInterceptor {
         }
 
         String token = resolveQueueToken(request);
+        if (path.startsWith("/api/v1/bookings") && !StringUtils.hasText(request.getParameter("seatId"))) {
+            // JSON 예매 요청의 seatId는 request body에 있음.
+            // 인터셉터에서 body를 읽으면 컨트롤러가 다시 읽기 어려우므로,
+            // 여기서는 토큰 존재 여부만 확인하고 showId 기반 최종 검증은 BookingService에서 수행.
+            if (!StringUtils.hasText(token)) {
+                throw new BusinessException(ErrorCode.QUEUE_TOKEN_REQUIRED);
+            }
+            return true;
+        }
+
         Long showId = resolveShowId(request);
         queueService.validateQueueToken(token, showId, userId);
 

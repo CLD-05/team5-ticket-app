@@ -1,9 +1,12 @@
 package com.example.ticketing.booking.controller;
 
 import com.example.ticketing.booking.service.BookingService;
+import com.example.ticketing.global.exception.BusinessException;
+import com.example.ticketing.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -12,12 +15,18 @@ import org.springframework.web.bind.annotation.*;
 public class BookingController {
     private final BookingService bookingService;
 
-    // Queue Token 검증 적용 시 X-Queue-Token 헤더를 추가로 받기
-    // @RequestHeader(value = "X-Queue-Token", required = false) String queueToken
     @PostMapping
-    public ResponseEntity<?> requestBooking(@RequestParam Long seatId, @AuthenticationPrincipal String userId) {
-        // 적용 시: bookingService.requestBooking(seatId, userId, queueToken)
-        var response = bookingService.requestBooking(seatId, userId);
+    public ResponseEntity<?> requestBooking(
+            @RequestParam(required = false) Long seatId,
+            @RequestBody(required = false) BookingRequest request,
+            @AuthenticationPrincipal String userId,
+            @RequestHeader(value = "X-Queue-Token", required = false) String queueTokenHeader,
+            @CookieValue(value = "queueToken", required = false) String queueTokenCookie
+    ) {
+        Long resolvedSeatId = resolveSeatId(seatId, request);
+        String queueToken = resolveQueueToken(queueTokenHeader, queueTokenCookie);
+
+        var response = bookingService.requestBooking(resolvedSeatId, userId, queueToken);
         return ResponseEntity.accepted().body(response);
     }
     
@@ -30,4 +39,18 @@ public class BookingController {
     public ResponseEntity<?> getMyBookings(@AuthenticationPrincipal String userId) {
         return ResponseEntity.ok(bookingService.getUserBookings(userId));
     }
+
+    private Long resolveSeatId(Long seatId, BookingRequest request) {
+        Long resolvedSeatId = seatId != null ? seatId : request != null ? request.seatId() : null;
+        if (resolvedSeatId == null) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
+        }
+        return resolvedSeatId;
+    }
+
+    private String resolveQueueToken(String queueTokenHeader, String queueTokenCookie) {
+        return StringUtils.hasText(queueTokenHeader) ? queueTokenHeader : queueTokenCookie;
+    }
+
+    public record BookingRequest(Long seatId) {}
 }
