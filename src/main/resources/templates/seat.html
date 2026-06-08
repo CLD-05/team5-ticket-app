@@ -481,7 +481,6 @@
             }
 
             if (IS_MOCK) {
-                /* 💡 대표님 말씀대로 팝업 알림창(alert)을 완전히 지우고, 하단 상태바에 결제 대기 상태만 노출하며 다음 화면 전환 준비 상태로 깔끔하게 떨어지게 바꿨습니다. */
                 document.getElementById('status-bar').textContent = "결제 페이지로 이동 중입니다...";
                 return;
             }
@@ -494,7 +493,6 @@
                 });
                 
                 if (response.status === 202) {
-                    /* 나중에 실제 결제 화면 URL 경로로 넘겨줄 위치입니다 (예: location.href = '/checkout';) */
                     document.getElementById('status-bar').textContent = "결제 요청이 접수되었습니다. 잠시만 기다려주세요.";
                 }
             } catch (error) {
