@@ -322,8 +322,8 @@
     </div>
 
     <script>
-        const IS_MOCK = true;
-        const performanceId = 1;
+        const IS_MOCK = false;
+        const performanceId = Number(sessionStorage.getItem('queueShowId') || '1');
         let countdownInterval = null;
         let currentSelectedSeatId = null;
 
@@ -377,8 +377,13 @@
                 return;
             }
             try {
-                const response = await fetch(`/api/v1/performances/${performanceId}/seats`);
-                if (!response.ok) return;
+                const response = await fetch(`/api/v1/performances/${performanceId}/seats`, {
+                    headers: authHeaders()
+                });
+                if (!response.ok) {
+                    handleSeatApiError(response);
+                    return;
+                }
                 const seats = await response.json();
                 renderSeats(seats);
             } catch (error) {
@@ -455,7 +460,8 @@
 
             try {
                 const response = await fetch(`/api/v1/seats/${currentSelectedSeatId}/hold`, {
-                    method: 'POST'
+                    method: 'POST',
+                    headers: authHeaders()
                 });
                 
                 if (response.status === 409) {
@@ -463,12 +469,47 @@
                     return;
                 }
                 
-                if (!response.ok) return;
+                if (!response.ok) {
+                    handleSeatApiError(response);
+                    return;
+                }
                 
                 startTimer();
                 fetchSeats();
             } catch (error) {
                 console.error(error);
+            }
+        }
+
+        function authHeaders() {
+            const accessToken = localStorage.getItem('accessToken');
+            const queueToken = sessionStorage.getItem('queueToken');
+
+            return {
+                Authorization: `Bearer ${accessToken || ''}`,
+                'X-Queue-Token': queueToken || ''
+            };
+        }
+
+        async function handleSeatApiError(response) {
+            let message = '좌석 정보를 불러오지 못했습니다.';
+
+            try {
+                const error = await response.json();
+                if (error.message) {
+                    message = error.message;
+                }
+            } catch (error) {
+                if (response.status === 401) {
+                    message = '로그인이 필요합니다.';
+                } else if (response.status === 403) {
+                    message = '대기열 입장 토큰이 필요합니다.';
+                }
+            }
+
+            document.getElementById('status-bar').textContent = message;
+            if (response.status === 401 || response.status === 403) {
+                alert(message);
             }
         }
 

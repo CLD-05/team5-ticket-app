@@ -9,6 +9,7 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -26,13 +27,21 @@ public class SeatController {
     private final SeatService seatService;
 
     @GetMapping("/performances/{id}/seats")
-    public ResponseEntity<List<SeatResponseDto>> getSeats(@PathVariable("id") Long id) {
-        return ResponseEntity.ok(seatService.getSeats(id));
+    public ResponseEntity<List<SeatResponseDto>> getSeats(
+            @PathVariable("id") Long id,
+            @AuthenticationPrincipal String userId,
+            @RequestHeader(value = "X-Queue-Token", required = false) String queueToken
+    ) {
+        return ResponseEntity.ok(seatService.getSeats(id, userId, queueToken));
     }
 
     @PostMapping("/seats/{seatId}/hold")
-    public ResponseEntity<?> holdSeat(@PathVariable Long seatId, @AuthenticationPrincipal String userId) {
-        var response = seatService.holdSeat(seatId, userId);
+    public ResponseEntity<?> holdSeat(
+            @PathVariable Long seatId,
+            @AuthenticationPrincipal String userId,
+            @RequestHeader(value = "X-Queue-Token", required = false) String queueToken
+    ) {
+        var response = seatService.holdSeat(seatId, userId, queueToken);
         return ResponseEntity.ok(response);
     }
 

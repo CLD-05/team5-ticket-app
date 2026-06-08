@@ -6,11 +6,14 @@ import com.example.ticketing.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
 import java.time.Duration;
 import java.time.Instant;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.UUID;
 
 @Service
@@ -18,13 +21,16 @@ import java.util.UUID;
 public class QueueService {
     private final StringRedisTemplate redisTemplate;
     private static final String WAITING_QUEUE_KEY_PREFIX = "queue:waiting:";
-    private static final String ACTIVE_USER_KEY_PREFIX = "queue:active:";
+    private static final String ACTIVE_QUEUE_KEY_PREFIX = "queue:active:";
     private static final String USER_TOKEN_KEY_PREFIX = "queue:user-token:";
     private static final String TOKEN_KEY_PREFIX = "queue:token:";
     private static final Duration QUEUE_TOKEN_TTL = Duration.ofMinutes(10);
 
-    @Value("${queue.active-entry-limit:100}")
-    private int activeEntryLimit;
+    @Value("${queue.max-active-users:${queue.active-entry-limit:5000}}")
+    private int maxActiveUsers;
+
+    @Value("${queue.promotion-batch-size:100}")
+    private int promotionBatchSize;
 
     public String joinQueue(Long showId, String userId) {
         double score = Instant.now().toEpochMilli();
@@ -34,7 +40,9 @@ public class QueueService {
         return "JOINED";
     }
 
-    public QueueStatusResponse getStatus(Long showId, String userId) {
+    public synchronized QueueStatusResponse getStatus(Long showId, String userId) {
+        cleanupExpiredActiveUsers(showId);
+
         // Redis ZSET rank는 0부터 시작하므로 응답에서는 1을 더함
         Long rank = redisTemplate.opsForZSet().rank(waitingQueueKey(showId), userId);
         if (rank == null && isActiveUser(showId, userId)) {
@@ -45,21 +53,13 @@ public class QueueService {
             throw new NotFoundException(ErrorCode.QUEUE_NOT_FOUND);
         }
 
-        if (rank < activeEntryLimit) {
-            // 입장 허용 사용자는 waiting에서 제거하고 active 상태로 전환
-            redisTemplate.opsForZSet().remove(waitingQueueKey(showId), userId);
-            redisTemplate.opsForValue().set(activeUserKey(showId, userId), "ACTIVE", QUEUE_TOKEN_TTL);
-
-            return new QueueStatusResponse("ACTIVE", null, true, issueQueueToken(showId, userId));
-        }
-
         return new QueueStatusResponse("WAITING", rank + 1, false, null);
     }
 
     public void leaveQueue(Long showId, String userId) {
         // 사용자를 해당 공연의 대기열 ZSET에서 제거
         redisTemplate.opsForZSet().remove(waitingQueueKey(showId), userId);
-        redisTemplate.delete(activeUserKey(showId, userId));
+        redisTemplate.opsForZSet().remove(activeQueueKey(showId), userId);
 
         // 발급된 Queue Token 관련 키도 함께 삭제
         String token = redisTemplate.opsForValue().get(userTokenKey(showId, userId));
@@ -73,6 +73,8 @@ public class QueueService {
         if (!StringUtils.hasText(token)) {
             throw new BusinessException(ErrorCode.QUEUE_TOKEN_REQUIRED);
         }
+
+        cleanupExpiredActiveUsers(showId);
 
         String savedTokenValue = redisTemplate.opsForValue().get(tokenKey(token));
         if (savedTokenValue == null) {
@@ -88,16 +90,88 @@ public class QueueService {
         }
     }
 
+    @Scheduled(fixedRateString = "${queue.promotion-interval-ms:1000}")
+    public synchronized void promoteQueues() {
+        for (Long showId : findQueueShowIds()) {
+            cleanupExpiredActiveUsers(showId);
+            promoteWaitingUsers(showId);
+        }
+    }
+
     private String waitingQueueKey(Long showId) {
         // 공연 단위로 대기열을 분리
         return WAITING_QUEUE_KEY_PREFIX + showId;
     }
 
     private boolean isActiveUser(Long showId, String userId) {
-        return Boolean.TRUE.equals(redisTemplate.hasKey(activeUserKey(showId, userId)));
+        return redisTemplate.opsForZSet().score(activeQueueKey(showId), userId) != null;
+    }
+
+    private void cleanupExpiredActiveUsers(Long showId) {
+        redisTemplate.opsForZSet().removeRangeByScore(
+                activeQueueKey(showId),
+                Double.NEGATIVE_INFINITY,
+                Instant.now().toEpochMilli()
+        );
+    }
+
+    private void promoteWaitingUsers(Long showId) {
+        if (maxActiveUsers <= 0 || promotionBatchSize <= 0) {
+            return;
+        }
+
+        String activeQueueKey = activeQueueKey(showId);
+        String waitingQueueKey = waitingQueueKey(showId);
+        long activeCount = zSetSize(activeQueueKey);
+        long slots = Math.min(promotionBatchSize, maxActiveUsers - activeCount);
+
+        while (slots > 0) {
+            var nextUsers = redisTemplate.opsForZSet().range(waitingQueueKey, 0, 0);
+            if (nextUsers == null || nextUsers.isEmpty()) {
+                return;
+            }
+
+            String nextUserId = nextUsers.iterator().next();
+            redisTemplate.opsForZSet().remove(waitingQueueKey, nextUserId);
+            redisTemplate.opsForZSet().add(activeQueueKey, nextUserId, activeExpiresAt());
+            slots--;
+        }
+    }
+
+    private Set<Long> findQueueShowIds() {
+        Set<Long> showIds = new HashSet<>();
+        collectShowIds(showIds, WAITING_QUEUE_KEY_PREFIX);
+        collectShowIds(showIds, ACTIVE_QUEUE_KEY_PREFIX);
+        return showIds;
+    }
+
+    private void collectShowIds(Set<Long> showIds, String keyPrefix) {
+        Set<String> keys = redisTemplate.keys(keyPrefix + "*");
+        if (keys == null) {
+            return;
+        }
+
+        for (String key : keys) {
+            String showId = key.substring(keyPrefix.length());
+            try {
+                showIds.add(Long.parseLong(showId));
+            } catch (NumberFormatException ignored) {
+            }
+        }
+    }
+
+    private long zSetSize(String key) {
+        Long size = redisTemplate.opsForZSet().zCard(key);
+        return size == null ? 0 : size;
+    }
+
+    private double activeExpiresAt() {
+        return Instant.now().plus(QUEUE_TOKEN_TTL).toEpochMilli();
     }
 
     private String issueQueueToken(Long showId, String userId) {
+        redisTemplate.opsForZSet().add(activeQueueKey(showId), userId, activeExpiresAt());
+
         // ACTIVE 상태에서는 기존 Queue Token을 재사용
         String existingToken = redisTemplate.opsForValue().get(userTokenKey(showId, userId));
         if (StringUtils.hasText(existingToken)) {
@@ -111,8 +185,8 @@ public class QueueService {
         return token;
     }
 
-    private String activeUserKey(Long showId, String userId) {
-        return ACTIVE_USER_KEY_PREFIX + showId + ":" + userId;
+    private String activeQueueKey(Long showId) {
+        return ACTIVE_QUEUE_KEY_PREFIX + showId;
     }
 
     private String userTokenKey(Long showId, String userId) {

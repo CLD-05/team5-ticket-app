@@ -237,7 +237,7 @@
 
   <script th:inline="javascript">
     const showId = [[${showId}]];
-    const pollIntervalMs = 3000;
+    const pollIntervalMs = 1000;
     let pollTimer = null;
 
     document.addEventListener("DOMContentLoaded", async () => {
@@ -273,10 +273,16 @@
 
     async function joinQueue() {
       try {
-        await fetch(`/api/v1/shows/${showId}/queue/join`, {
+        const response = await fetch(`/api/v1/shows/${showId}/queue/join`, {
           method: "POST",
           headers: authHeaders()
         });
+
+        if (!response.ok) {
+          await renderWaitingError(response);
+          return;
+        }
+
         await refreshStatus();
       } catch (error) {
         renderWaitingError();
@@ -291,7 +297,7 @@
         });
 
         if (!response.ok) {
-          renderWaitingError();
+          await renderWaitingError(response);
           return;
         }
 
@@ -318,16 +324,18 @@
 
     function renderStatus(data) {
       if (data.status === "ACTIVE" || data.canEnter === true) {
-        localStorage.setItem("queueToken", data.queueToken);
+        sessionStorage.setItem("queueToken", data.queueToken);
+        sessionStorage.setItem("queueShowId", String(showId));
         document.getElementById("rankValue").textContent = "0";
         document.getElementById("progressBar").style.width = "100%";
-        document.getElementById("message").innerHTML = "입장이 가능합니다.<br>예매하기 버튼을 눌러 좌석 선택으로 이동해주세요.";
+        document.getElementById("message").innerHTML = "입장이 가능합니다.<br>좌석 선택 페이지로 이동합니다.";
         document.getElementById("warning").classList.add("hidden");
         document.getElementById("seatLink").classList.remove("hidden");
 
         if (pollTimer) {
           clearInterval(pollTimer);
         }
+        window.location.href = "/seat/index.html";
         return;
       }
 
@@ -339,10 +347,24 @@
       document.getElementById("seatLink").classList.add("hidden");
     }
 
-    function renderWaitingError() {
+    async function renderWaitingError(response) {
+      let message = "대기열 상태를 확인하지 못했습니다.<br>잠시 후 다시 시도해주세요.";
+
+      if (response) {
+        message = `대기열 상태를 확인하지 못했습니다. (${response.status})<br>잠시 후 다시 시도해주세요.`;
+
+        try {
+          const error = await response.json();
+          if (error.message) {
+            message = `${error.message} (${response.status})`;
+          }
+        } catch (error) {
+        }
+      }
+
       document.getElementById("rankValue").textContent = "-";
       document.getElementById("progressBar").style.width = "1%";
-      document.getElementById("message").innerHTML = "대기열 상태를 확인하지 못했습니다.<br>잠시 후 다시 시도해주세요.";
+      document.getElementById("message").innerHTML = message;
     }
 
     function progressWidth(position) {
