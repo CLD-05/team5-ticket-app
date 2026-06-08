@@ -19,3 +19,7 @@ spring:
       credentials:
         access-key: test-access-key
         secret-key: test-secret-key
+
+app:
+  seat:
+    hold-ttl-seconds: 10

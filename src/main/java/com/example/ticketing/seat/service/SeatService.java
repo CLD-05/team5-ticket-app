@@ -9,6 +9,7 @@ import com.example.ticketing.seat.entity.SeatStatus;
 import com.example.ticketing.seat.repository.SeatRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -23,7 +24,13 @@ public class SeatService {
     private final SeatRepository seatRepository;
     // Queue Token 검증 적용 시 추가
     // private final QueueService queueService;
-    private static final Duration HOLD_TTL = Duration.ofMinutes(5);
+
+    @Value("${app.seat.hold-ttl-seconds:300}")
+    private long holdTtlSeconds;
+
+    private Duration getHoldTtl() {
+        return Duration.ofSeconds(holdTtlSeconds);
+    }
 
     @Transactional(readOnly = true)
     public List<SeatResponseDto> getSeats(Long showId) {
@@ -51,7 +58,7 @@ public class SeatService {
         String key = "seat:" + seatId;
 
         Boolean success = redisTemplate.opsForValue()
-                .setIfAbsent(key, userId, HOLD_TTL);
+                .setIfAbsent(key, userId, getHoldTtl());
 
         if (!Boolean.TRUE.equals(success)) {
             throw new ConflictException(ErrorCode.SEAT_ALREADY_HELD);
@@ -65,7 +72,7 @@ public class SeatService {
             throw new ConflictException(ErrorCode.SEAT_ALREADY_SOLD);
         }
 
-        return new SeatHoldResponse(seatId, 300);
+        return new SeatHoldResponse(seatId, (int) holdTtlSeconds);
     }
 
     public boolean checkSeatHolder(Long seatId, String userId) {

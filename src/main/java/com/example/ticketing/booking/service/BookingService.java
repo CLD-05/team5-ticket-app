@@ -7,16 +7,20 @@ import io.awspring.cloud.sqs.operations.SqsTemplate;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.script.DefaultRedisScript;
+import com.example.ticketing.booking.repository.BookingRepository;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
 public class BookingService {
     private final StringRedisTemplate redisTemplate;
     private final SqsTemplate sqsTemplate;
+    private final BookingRepository bookingRepository;
     // Queue Token 검증 적용 시 추가
     // private final SeatRepository seatRepository;
     // private final QueueService queueService;
@@ -34,7 +38,7 @@ public class BookingService {
         String lua = """
             if redis.call('GET', KEYS[1]) == ARGV[1] then
                 redis.call('DEL', KEYS[1])
-                redis.call('SET', 'sold:' .. ARGV[2], ARGV[1])
+                redis.call('SET', 'sold:' .. ARGV[2], ARGV[1], 'EX', 600)
                 return 1
             else
                 return 0
@@ -65,6 +69,29 @@ public class BookingService {
     	}
         return new BookingStatusResponse(requestId, status);
     }
+
+    @Transactional(readOnly = true)
+    public List<UserBookingResponse> getUserBookings(String userId) {
+        return bookingRepository.findByUserIdWithSeatAndShow(userId).stream()
+                .map(booking -> new UserBookingResponse(
+                        booking.getId(),
+                        booking.getSeat().getShow().getTitle(),
+                        booking.getSeat().getShow().getVenue(),
+                        booking.getSeat().getSeatNumber(),
+                        booking.getSeat().getPrice(),
+                        booking.getBookedAt()
+                ))
+                .collect(Collectors.toList());
+    }
+
+    public record UserBookingResponse(
+            String bookingId,
+            String showTitle,
+            String venue,
+            String seatNumber,
+            int price,
+            java.time.LocalDateTime bookedAt
+    ) {}
 
     public record BookingAcceptResponse(String requestId, String status) {}
     public record BookingStatusResponse(String requestId, String status) {}
