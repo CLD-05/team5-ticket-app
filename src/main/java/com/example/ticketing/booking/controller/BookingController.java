@@ -25,4 +25,9 @@ public class BookingController {
     public ResponseEntity<?> getStatus(@PathVariable String requestId) {
     	return ResponseEntity.ok(bookingService.getBookingStatus(requestId));
     }
+
+    @GetMapping("/me")
+    public ResponseEntity<?> getMyBookings(@AuthenticationPrincipal String userId) {
+        return ResponseEntity.ok(bookingService.getUserBookings(userId));
+    }
 }
