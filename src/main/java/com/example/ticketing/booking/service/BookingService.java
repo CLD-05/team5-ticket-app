@@ -3,6 +3,9 @@ package com.example.ticketing.booking.service;
 import com.example.ticketing.booking.sqs.BookingMessage;
 import com.example.ticketing.global.exception.ConflictException;
 import com.example.ticketing.global.exception.ErrorCode;
+import com.example.ticketing.global.exception.NotFoundException;
+import com.example.ticketing.queue.service.QueueService;
+import com.example.ticketing.seat.repository.SeatRepository;
 import io.awspring.cloud.sqs.operations.SqsTemplate;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.redis.core.StringRedisTemplate;
@@ -21,15 +24,15 @@ public class BookingService {
     private final StringRedisTemplate redisTemplate;
     private final SqsTemplate sqsTemplate;
     private final BookingRepository bookingRepository;
-    // Queue Token 검증 적용 시 추가
-    // private final SeatRepository seatRepository;
-    // private final QueueService queueService;
+    private final SeatRepository seatRepository;
+    private final QueueService queueService;
 
-    public BookingAcceptResponse requestBooking(Long seatId, String userId) {
-        // Queue Token 검증 적용 시 메서드 인자에 String queueToken 추가
-        // Long showId = seatRepository.findShowIdBySeatId(seatId)
-        //         .orElseThrow(() -> new NotFoundException("좌석이 존재하지 않습니다."));
-        // queueService.validateQueueToken(queueToken, showId, userId);
+    public BookingAcceptResponse requestBooking(Long seatId, String userId, String queueToken) {
+        Long showId = seatRepository.findShowIdBySeatId(seatId)
+                .orElseThrow(() -> new NotFoundException("좌석이 존재하지 않습니다."));
+
+        // 서비스 계층에서 Queue Token을 한 번 더 검증
+        queueService.validateQueueToken(queueToken, showId, userId);
 
         String holdKey = "seat:" + seatId;
         String requestId = UUID.randomUUID().toString();
