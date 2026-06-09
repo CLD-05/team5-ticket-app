@@ -3,39 +3,33 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>로그인 - QueueTicket</title>
+  <title>로그인 - Ticket Wave</title>
   <link rel="stylesheet" th:href="@{/css/auth.css}">
 </head>
 <body>
   <div class="auth-container">
     <div class="auth-card">
       <div class="auth-header">
-        <a href="/" class="auth-logo">QueueTicket</a>
+        <a href="/" class="auth-logo">Ticket Wave</a>
         <div class="auth-subtitle">로그인하여 대기열 티켓을 발급받으세요.</div>
       </div>
-
       <div class="alert alert-danger" id="errorAlert"></div>
-
       <form id="loginForm">
         <div class="form-group">
           <label class="form-label" for="email">이메일 주소</label>
           <input class="form-input" type="email" id="email" required placeholder="example@email.com">
         </div>
-
         <div class="form-group">
           <label class="form-label" for="password">비밀번호</label>
           <input class="form-input" type="password" id="password" required placeholder="••••••••">
         </div>
-
         <button class="auth-btn" type="submit">로그인</button>
       </form>
-
       <div class="auth-footer">
         아직 회원이 아니신가요? <a class="auth-link" href="/signup">회원가입</a>
       </div>
     </div>
   </div>
-
   <script>
     document.getElementById("loginForm").addEventListener("submit", async function(event) {
         event.preventDefault();
@@ -61,7 +55,6 @@
                 localStorage.setItem("userId", data.userId);
                 localStorage.setItem("userName", data.name);
                 
-                // Redirect back to main page
                 window.location.href = "/";
             } else {
                 const errData = await response.json();
