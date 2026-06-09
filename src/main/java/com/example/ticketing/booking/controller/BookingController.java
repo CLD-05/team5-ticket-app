@@ -8,6 +8,9 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+
 
 @RestController
 @RequestMapping("/api/v1/bookings")
@@ -38,6 +41,14 @@ public class BookingController {
     @GetMapping("/me")
     public ResponseEntity<?> getMyBookings(@AuthenticationPrincipal String userId) {
         return ResponseEntity.ok(bookingService.getUserBookings(userId));
+    }
+    
+    @DeleteMapping("/{bookingId}")
+    public ResponseEntity<Void> cancelBooking(
+            @PathVariable String bookingId,
+            @AuthenticationPrincipal String userId) {
+        bookingService.cancelBooking(bookingId, userId);
+        return ResponseEntity.noContent().build();  // 204
     }
 
     private Long resolveSeatId(Long seatId, BookingRequest request) {

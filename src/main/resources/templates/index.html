@@ -18,8 +18,11 @@
     }
 
     .container {
-      width: 1180px;
+      max-width: 1180px;
+      width: 100%;
       margin: 0 auto;
+      padding: 0 20px;
+      box-sizing: border-box;
     }
 
     .header {
@@ -32,6 +35,8 @@
       display: flex;
       justify-content: space-between;
       align-items: center;
+      flex-wrap: wrap;
+      gap: 12px;
     }
 
     .logo {
@@ -107,9 +112,6 @@
       cursor: pointer;
     }
 
-    .category-section {
-      margin-top: 45px;
-    }
 
     .section-title {
       font-size: 26px;
@@ -117,35 +119,10 @@
       margin-bottom: 18px;
     }
 
-    .category-grid {
-      display: grid;
-      grid-template-columns: repeat(7, 1fr);
-      gap: 16px;
-    }
 
-    .category-card {
-      background: white;
-      border-radius: 18px;
-      padding: 22px 10px;
-      text-align: center;
-      box-shadow: 0 8px 20px rgba(0, 0, 0, 0.06);
-      cursor: pointer;
-      transition: 0.2s;
-    }
 
-    .category-card:hover {
-      transform: translateY(-5px);
-    }
 
-    .category-icon {
-      font-size: 30px;
-      margin-bottom: 10px;
-    }
 
-    .category-name {
-      font-weight: 800;
-      color: #374151;
-    }
 
     .show-section {
       margin-top: 50px;
@@ -153,7 +130,7 @@
 
     .show-grid {
       display: grid;
-      grid-template-columns: repeat(4, 1fr);
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
       gap: 22px;
     }
 
@@ -227,6 +204,48 @@
       color: #9ca3af;
       text-align: center;
     }
+
+    @media (max-width: 768px) {
+      .hero {
+        padding: 50px 0;
+      }
+      .hero-text h1 {
+        font-size: 34px;
+      }
+      .hero-text p {
+        font-size: 15px;
+      }
+      .search-box {
+        width: 100%;
+        max-width: 560px;
+      }
+      .section-title {
+        font-size: 22px;
+      }
+    }
+
+    @media (max-width: 480px) {
+      .logo {
+        font-size: 24px;
+      }
+      .hero-text h1 {
+        font-size: 28px;
+      }
+      .search-box {
+        flex-direction: column;
+        height: auto;
+        border-radius: 16px;
+        padding: 14px;
+        gap: 10px;
+      }
+      .search-box input {
+        width: 100%;
+        text-align: center;
+      }
+      .search-box button {
+        width: 100%;
+      }
+    }
   </style>
 </head>
 
@@ -235,15 +254,6 @@
   <header class="header">
     <div class="container header-inner">
       <div class="logo" style="cursor: pointer;" onclick="location.href='/'">Ticket Wave</div>
-
-      <nav class="nav">
-        <span>공연</span>
-        <span>뮤지컬</span>
-        <span>콘서트</span>
-        <span>전시</span>
-        <span>랭킹</span>
-        <span>이벤트</span>
-      </nav>
 
       <div class="user-menu" id="userMenu">
         <!-- JavaScript로 로그인 정보 동적 렌더링 -->
@@ -269,47 +279,6 @@
   </section>
 
   <main class="container">
-
-    <section class="category-section">
-      <div class="section-title">카테고리</div>
-
-      <div class="category-grid">
-        <div class="category-card" onclick="filterCategory('PLAY')">
-          <div class="category-icon">🎭</div>
-          <div class="category-name">연극</div>
-        </div>
-
-        <div class="category-card" onclick="filterCategory('MUSICAL')">
-          <div class="category-icon">🎵</div>
-          <div class="category-name">뮤지컬</div>
-        </div>
-
-        <div class="category-card" onclick="filterCategory('CONCERT')">
-          <div class="category-icon">🎤</div>
-          <div class="category-name">콘서트</div>
-        </div>
-
-        <div class="category-card" onclick="filterCategory('EXHIBITION')">
-          <div class="category-icon">🖼️</div>
-          <div class="category-name">전시</div>
-        </div>
-
-        <div class="category-card" onclick="filterCategory('FESTIVAL')">
-          <div class="category-icon">🎪</div>
-          <div class="category-name">페스티벌</div>
-        </div>
-
-        <div class="category-card">
-          <div class="category-icon">👨‍👩‍👧</div>
-          <div class="category-name">키즈</div>
-        </div>
-
-        <div class="category-card">
-          <div class="category-icon">⚡</div>
-          <div class="category-name">타임세일</div>
-        </div>
-      </div>
-    </section>
 
     <section class="show-section">
       <div class="section-title">현재 예매 가능 공연</div>
@@ -356,17 +325,6 @@
         }
     }
 
-    let activeCategory = "";
-
-    function filterCategory(category) {
-        if (activeCategory === category) {
-            activeCategory = ""; // 토글 해제
-        } else {
-            activeCategory = category;
-        }
-        loadShows();
-    }
-
     async function loadShows() {
         const showGrid = document.getElementById("showGrid");
         const searchInput = document.getElementById("searchInput").value.trim();
@@ -374,7 +332,6 @@
         let url = "/api/v1/shows";
         const params = [];
         if (searchInput) params.push(`keyword=${encodeURIComponent(searchInput)}`);
-        if (activeCategory) params.push(`category=${encodeURIComponent(activeCategory)}`);
         if (params.length > 0) {
             url += "?" + params.join("&");
         }
@@ -396,7 +353,6 @@
                 card.className = "show-card";
                 card.addEventListener("click", () => goToBooking(show.showId));
                 
-                // DB 데이터를 바인딩하여 렌더링 (디자인 컨셉 유지)
                 card.innerHTML = `
                     <div class="poster">LIVE</div>
                     <div class="show-info">
