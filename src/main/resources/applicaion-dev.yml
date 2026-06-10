@@ -1,0 +1,55 @@
+# application-dev.yml  (EKS dev 프로파일)
+# local/docker yml 구조 유지. EKS 환경 차이만 반영:
+#   - 시크릿 평문 금지 -> 환경변수 주입(ESO -> Secret -> env)
+#   - datasource는 RDS Proxy 엔드포인트 경유
+#   - Redis는 ElastiCache 엔드포인트
+#   - SQS는 실제 AWS (LocalStack endpoint 제거, IRSA 인증 -> credentials 제거)
+#   - HikariCP 커넥션 풀 상한 (DB 보호 핵심)
+spring:
+  datasource:
+    # ⚠️ RDS 직접이 아니라 RDS Proxy 엔드포인트로. (Proxy 담당이 엔드포인트 제공)
+    url: jdbc:mysql://${DB_HOST}:3306/ticketing?useSSL=true&serverTimezone=Asia/Seoul&characterEncoding=UTF-8
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}          # ESO로 주입 (평문 금지)
+
+    # === HikariCP 커넥션 풀 산정 ===
+    # 전제: RDS db.t3.small (max_connections ≈ 150)
+    #   안전 가용 ≈ 150 × 0.75 - 관리예약 ≈ 100
+    #   KEDA maxReplicaCount(20) × pool(8) = 160 을 RDS Proxy가 멀티플렉싱으로 완충
+    #   -> Proxy의 max_connections_percent(약 90% = 135)로 RDS 실제 커넥션은 한계 내 유지
+    # ⚠️ Proxy 담당과 정합성 확인: 앱 이론최대(160) vs Proxy->RDS 상한(135) vs RDS(150)
+    hikari:
+      maximum-pool-size: 8            # Pod당 상한 (스케일 시 ×Pod수 = RDS 부하)
+      minimum-idle: 2                 # 유휴 커넥션 최소 (과다 점유 방지)
+      connection-timeout: 3000        # 풀 고갈 시 3초 후 실패 (무한대기 금지 -> 적체 가시화)
+      max-lifetime: 1800000           # 30분. RDS wait_timeout 보다 짧게
+      idle-timeout: 600000            # 10분
+      pool-name: booking-hikari       # 로그/메트릭 식별용
+
+  data:
+    redis:
+      host: ${REDIS_HOST}             # ElastiCache Primary 엔드포인트
+      port: 6379
+
+  cloud:
+    aws:
+      sqs:
+        enabled: true
+        # endpoint 제거 -> 실제 AWS SQS 사용 (LocalStack 아님)
+      region:
+        static: ap-northeast-2
+      # credentials 제거 -> IRSA(ServiceAccount role)로 인증
+
+app:
+  seat:
+    hold-ttl-seconds: 10
+
+# Actuator/Micrometer -> Prometheus 노출 (ServiceMonitor가 scrape)
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,prometheus
+  metrics:
+    tags:
+      service: booking                # 공통 label
