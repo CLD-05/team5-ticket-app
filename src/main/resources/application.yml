@@ -34,6 +34,10 @@ jwt:
   secret: c2VjcmV0LWtleS1wbGFjZWhvbGRlci1hdC1sZWFzdC0zMi1jaGFyYWN0ZXJzLWxvbmc=
   expiration-ms: 3600000
 
+app:
+  sqs:
+    booking-queue: ${AWS_SQS_BOOKING_QUEUE_URL:booking-queue}
+
 management:
   endpoints:
     web:

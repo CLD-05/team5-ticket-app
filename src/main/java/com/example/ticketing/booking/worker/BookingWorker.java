@@ -22,7 +22,7 @@ public class BookingWorker {
     private final MeterRegistry meterRegistry;
     private static final Duration RESULT_TTL = Duration.ofMinutes(5);
 
-    @SqsListener("booking-queue")
+    @SqsListener("${app.sqs.booking-queue:booking-queue}")
     public void confirmBooking(BookingMessage message) {
         log.info("예매 확정 처리 시작: {}, 사용자: {}", message.seatId(), message.userId());
 
