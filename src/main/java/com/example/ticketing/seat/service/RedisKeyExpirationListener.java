@@ -22,6 +22,7 @@ public class RedisKeyExpirationListener extends KeyExpirationEventMessageListene
                                       SeatRepository seatRepository,
                                       StringRedisTemplate redisTemplate) {
         super(listenerContainer);
+        setKeyspaceNotificationsConfigParameter(null);
         this.seatRepository = seatRepository;
         this.redisTemplate = redisTemplate;
         log.info("RedisKeyExpirationListener 빈이 성공적으로 생성 및 스프링 컨테이너에 등록되었습니다.");
