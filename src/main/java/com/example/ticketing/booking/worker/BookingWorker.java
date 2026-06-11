@@ -9,11 +9,13 @@ import lombok.extern.slf4j.Slf4j;
 import java.time.Duration;
 import java.util.concurrent.TimeUnit;
 
+import org.springframework.context.annotation.Profile;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Component;
 
 @Component
+@Profile("worker")
 @Slf4j
 @RequiredArgsConstructor
 public class BookingWorker {
