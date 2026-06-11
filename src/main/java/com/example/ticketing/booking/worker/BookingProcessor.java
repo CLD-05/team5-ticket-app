@@ -24,27 +24,27 @@ public class BookingProcessor {
     private final SeatGradeRepository seatGradeRepository;
 
     /**
-     * 예매 확정 처리. 결과 문자열을 반환한다.
-     * Unique 제약 위반 시에는 예외를 그대로 전파시켜 트랜잭션을 롤백한다(호출자가 잡음).
+     * 예매 확정 처리. 결과를 BookingResult로 반환한다.
+     * Unique 제약 위반 시에는 예외를 그대로 전파시켜 트랜잭션을 롤백한다(BookingWorker가 잡아 CONFLICT 처리).
      */
     @Transactional
-    public String process(BookingMessage message) {
+    public BookingResult process(BookingMessage message) {
         Seat seat = seatRepository.findById(message.seatId()).orElse(null);
         if (seat == null) {
             log.error("좌석을 찾을 수 없습니다. - 좌석 : {}", message.seatId());
-            return "예매 실패";
+            return BookingResult.FAILED;
         }
 
         // 같은 메시지 재전송 멱등 처리 (최초 처리 때 이미 감소했으므로 여기선 감소하지 않음)
         if (seat.getStatus() == SeatStatus.SOLD) {
             log.warn("이미 판매 완료된 좌석입니다. - 좌석 : {}", seat.getId());
-            return "예매 성공";
+            return BookingResult.CONFIRMED;
         }
 
         User user = userRepository.findById(message.userId()).orElse(null);
         if (user == null) {
             log.error("사용자를 찾을 수 없습니다. 사용자 : {}", message.userId());
-            return "예매 실패";
+            return BookingResult.FAILED;
         }
 
         seat.sold();
@@ -65,6 +65,6 @@ public class BookingProcessor {
                 });
 
         log.info("예매 확정 완료 - 좌석: {}", seat.getId());
-        return "예매 성공";
+        return BookingResult.CONFIRMED;
     }
 }

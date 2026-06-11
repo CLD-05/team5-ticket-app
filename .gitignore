@@ -50,3 +50,6 @@ Thumbs.db
 *.yml
 !src/main/resources/application-local.yml
 !src/main/resources/application-docker.yml
+!.github/
+!.github/workflows/
+!.github/workflows/*.yml
