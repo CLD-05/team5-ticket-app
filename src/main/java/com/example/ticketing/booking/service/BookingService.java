@@ -11,6 +11,7 @@ import com.example.ticketing.queue.service.QueueService;
 import com.example.ticketing.seat.repository.SeatRepository;
 import io.awspring.cloud.sqs.operations.SqsTemplate;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.script.DefaultRedisScript;
 import com.example.ticketing.booking.repository.BookingRepository;
@@ -30,6 +31,9 @@ public class BookingService {
     private final SeatRepository seatRepository;
     private final QueueService queueService;
     private final SeatGradeRepository seatGradeRepository;
+
+    @Value("${app.sqs.booking-queue:booking-queue}")
+    private String bookingQueue;
 
     public BookingAcceptResponse requestBooking(Long seatId, String userId, String queueToken) {
         Long showId = seatRepository.findShowIdBySeatId(seatId)
@@ -64,7 +68,7 @@ public class BookingService {
         }
 
         // SQS Message 발행 (비동기 처리 요청)
-        sqsTemplate.send("booking-queue", new BookingMessage(requestId, seatId, userId, System.currentTimeMillis()));
+        sqsTemplate.send(bookingQueue, new BookingMessage(requestId, seatId, userId, System.currentTimeMillis()));
 
         return new BookingAcceptResponse(requestId, "ACCEPTED");
     }
