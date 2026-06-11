@@ -53,3 +53,8 @@ management:
   metrics:
     tags:
       service: booking                # 공통 label
+
+# 부하테스트(A 방식) 전용: 큐토큰 검증 우회 스위치. 기본 false, env로만 켬.
+queue:
+  token:
+    bypass: ${QUEUE_TOKEN_BYPASS:false}
