@@ -72,7 +72,7 @@ public class BookingService {
     public BookingStatusResponse getBookingStatus(String requestId) {
     	String status = redisTemplate.opsForValue().get("result:" + requestId);
     	if (status == null) {
-    		return new BookingStatusResponse(requestId, "처리중");
+    		return new BookingStatusResponse(requestId, "PROCESSING");
     	}
         return new BookingStatusResponse(requestId, status);
     }
