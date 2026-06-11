@@ -9,11 +9,13 @@ import lombok.extern.slf4j.Slf4j;
 import java.time.Duration;
 import java.util.concurrent.TimeUnit;
 
+import org.springframework.context.annotation.Profile;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Component;
 
 @Component
+@Profile("worker")
 @Slf4j
 @RequiredArgsConstructor
 public class BookingWorker {
@@ -22,7 +24,7 @@ public class BookingWorker {
     private final MeterRegistry meterRegistry;
     private static final Duration RESULT_TTL = Duration.ofMinutes(5);
 
-    @SqsListener("booking-queue")
+    @SqsListener("${app.sqs.booking-queue:booking-queue}")
     public void confirmBooking(BookingMessage message) {
         log.info("예매 확정 처리 시작: {}, 사용자: {}", message.seatId(), message.userId());
 

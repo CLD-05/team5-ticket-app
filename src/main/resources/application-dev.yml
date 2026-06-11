@@ -38,7 +38,9 @@ spring:
         # endpoint 제거 -> 실제 AWS SQS 사용 (LocalStack 아님)
       region:
         static: ap-northeast-2
-      # credentials 제거 -> IRSA(ServiceAccount role)로 인증
+      credentials:
+        access-key: ""
+        secret-key: ""
 
 app:
   seat:
