@@ -11,6 +11,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.DeleteMapping;
 
 import com.example.ticketing.global.exception.ConflictException;
 import com.example.ticketing.seat.dto.SeatResponseDto;
@@ -39,6 +40,15 @@ public class SeatController {
     ) {
         var response = seatService.holdSeat(seatId, userId);
         return ResponseEntity.ok(response);
+    }
+    
+     @DeleteMapping("/seats/{seatId}/hold")
+    public ResponseEntity<?> releaseSeat(
+            @PathVariable Long seatId,
+            @AuthenticationPrincipal String userId
+    ) {
+        seatService.releaseSeat(seatId, userId);
+        return ResponseEntity.ok().build();
     }
 
     @ExceptionHandler(ConflictException.class)

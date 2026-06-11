@@ -129,8 +129,10 @@
             transform: scale(1.15);
             z-index: 10;
         }
-        .AVAILABLE-R { background-color: #8a2be2; }
-        .AVAILABLE-S { background-color: #00cd3c; }
+        .AVAILABLE-VIP { background-color: #f5a623; }
+        .AVAILABLE-SR  { background-color: #ff7043; }
+        .AVAILABLE-R   { background-color: #8a2be2; }
+        .AVAILABLE-S   { background-color: #00cd3c; }
         .HOLD { background-color: #999999; }
         .SOLD {
             background-color: #e9ecef;
@@ -217,8 +219,6 @@
             height: 16px;
             margin-right: 10px;
         }
-        .legend-box.r-석 { background-color: #8a2be2; }
-        .legend-box.s-석 { background-color: #00cd3c; }
         .legend-price {
             margin-left: auto;
             color: #666666;
@@ -303,16 +303,7 @@
                         <span>좌석등급/잔여석</span>
                         <button class="btn-refresh" onclick="fetchSeats()">새로고침</button>
                     </div>
-                    <div class="legend-item">
-                        <div class="legend-box r-석"></div>
-                        <div>R석</div>
-                        <div class="legend-price">150,000원</div>
-                    </div>
-                    <div class="legend-item">
-                        <div class="legend-box s-석"></div>
-                        <div>S석</div>
-                        <div class="legend-price">120,000원</div>
-                    </div>
+                    <div id="legend-list"></div>
                 </div>
                 <button class="btn-complete" onclick="clickComplete()">좌석 선택 완료</button>
             </div>
@@ -323,12 +314,11 @@
 
     <script th:inline="javascript">
         /*<![CDATA[*/
-        const IS_MOCK = false;
         const performanceId = /*[[${performanceId}]]*/ 1;
-        
+
         let countdownInterval = null;
         let currentSelectedSeatId = null;
-        let mockSeats = [];
+        let isHolding = false;   // 선점 처리 중이면 폴링이 화면을 덮어쓰지 않도록 가드
 
         function getAccessToken() {
             return localStorage.getItem("accessToken");
@@ -342,13 +332,30 @@
             };
         }
 
+        // 좌석번호 형식: {등급}-{구역}-{번호}  예) V-A-1, R-B-15, S-C-40
+        // 구역 정보가 없는 옛 형식(V-1)도 호환: 구역 기본값 'A'
+        function parseSeat(seatNumber) {
+            const parts = (seatNumber || '').split('-');
+            const prefix = (parts[0] || '').toUpperCase();
+            // 가운데 토큰이 구역(A/B/C)이면 사용, 아니면 'A'
+            const zone = (parts.length >= 3 && /^[ABC]$/.test(parts[1].toUpperCase()))
+                ? parts[1].toUpperCase() : 'A';
+            const map = {
+                'V':  { name: 'VIP', cls: 'VIP', floor: 1, order: 1 },
+                'VIP':{ name: 'VIP', cls: 'VIP', floor: 1, order: 1 },
+                'SR': { name: 'SR',  cls: 'SR',  floor: 2, order: 2 },
+                'R':  { name: 'R',   cls: 'R',   floor: 2, order: 3 },
+                'S':  { name: 'S',   cls: 'S',   floor: 2, order: 4 },
+            };
+            const g = map[prefix] || { name: prefix, cls: 'S', floor: 2, order: 99 };
+            return { ...g, zone };
+        }
+
         async function fetchSeats() {
-            if (IS_MOCK) {
-                renderSeats(mockSeats);
-                return;
-            }
+            // 선점 처리 중에는 폴링 갱신 스킵 (클릭 씹힘 방지)
+            if (isHolding) return;
             try {
-                const response = await fetch(`/api/v1/shows/${performanceId}/seats`, {
+                const response = await fetch(`/api/v1/performances/${performanceId}/seats`, {
                     headers: authHeaders()
                 });
                 if (!response.ok) {
@@ -367,80 +374,117 @@
         }
 
         function renderSeats(seats) {
-            const blocks = ['A', 'B', 'C'];
-            blocks.forEach(b => {
+            // 모든 그리드 비우기
+            ['A','B','C'].forEach(b => {
                 const g1 = document.getElementById(`grid-1-${b}`);
                 const g2 = document.getElementById(`grid-2-${b}`);
                 if (g1) g1.innerHTML = '';
                 if (g2) g2.innerHTML = '';
             });
 
+            // 구역(A/B/C) → 층(VIP=1F, R/S=2F) → 등급순(VIP→SR→R→S) → 좌석ID 순으로 정렬
+            // 같은 그리드 안에서 SR→R→S 순으로 위에서부터 쌓이도록
+            seats.sort((a, b) => {
+                const ga = parseSeat(a.seatNumber), gb = parseSeat(b.seatNumber);
+                if (ga.zone !== gb.zone) return ga.zone < gb.zone ? -1 : 1;
+                if (ga.order !== gb.order) return ga.order - gb.order;
+                return a.seatId - b.seatId;
+            });
+
             seats.forEach(seat => {
-                const gridId = `grid-${seat.floor}-${seat.block}`;
-                const targetGrid = document.getElementById(gridId);
+                const g = parseSeat(seat.seatNumber);
+                // 등급으로 층 결정(VIP=1F, 나머지=2F), 좌석번호의 구역으로 A/B/C 결정
+                const targetGrid = document.getElementById(`grid-${g.floor}-${g.zone}`);
                 if (!targetGrid) return;
 
                 const div = document.createElement('div');
-                
                 if (seat.status === 'AVAILABLE') {
-                    div.className = `seat AVAILABLE-${seat.grade}`;
+                    div.className = `seat AVAILABLE-${g.cls}`;
                 } else {
                     div.className = `seat ${seat.status}`;
                 }
-                
-                div.title = seat.seatNumber;
+                div.title = `${seat.seatNumber} [${g.name}석/${g.zone}구역] - ${seat.status}`;
 
                 div.onclick = () => {
                     if (seat.status === 'AVAILABLE' || seat.status === 'HOLD') {
                         requestSeatHold(seat.seatId, seat.seatNumber);
                     }
                 };
-
                 targetGrid.appendChild(div);
             });
+
+            renderLegend(seats);
+        }
+
+        // 좌석 데이터에서 등급별 가격/잔여석 집계 → 범례 동적 생성
+        function renderLegend(seats) {
+            const legendList = document.getElementById('legend-list');
+            if (!legendList) return;
+
+            const agg = {};  // 등급명 → { cls, price, remaining }
+            seats.forEach(seat => {
+                const g = parseSeat(seat.seatNumber);
+                if (!agg[g.name]) {
+                    agg[g.name] = { cls: g.cls, price: seat.price, remaining: 0, order: g.order };
+                }
+                if (seat.status === 'AVAILABLE') agg[g.name].remaining++;
+            });
+
+            const rows = Object.entries(agg)
+                .sort((a, b) => a[1].order - b[1].order)
+                .map(([name, info]) => {
+                    const price = info.price.toLocaleString('ko-KR');
+                    return `
+                        <div class="legend-item">
+                            <div class="legend-box AVAILABLE-${info.cls}"></div>
+                            <div>${name}석 <span style="color:#999;font-size:11px;">(잔여 ${info.remaining})</span></div>
+                            <div class="legend-price">${price}원</div>
+                        </div>`;
+                }).join('');
+            legendList.innerHTML = rows;
         }
 
         async function requestSeatHold(seatId, seatNumber) {
-            if (IS_MOCK) {
-                return;
-            }
+            isHolding = true;  // 폴링 가드 ON
+            try {
+                // 이미 다른 좌석 선점 중이면 먼저 해제
+                if (currentSelectedSeatId !== null && currentSelectedSeatId !== seatId) {
+                    try {
+                        await fetch(`/api/v1/seats/${currentSelectedSeatId}/hold`, {
+                            method: 'DELETE', headers: authHeaders()
+                        });
+                    } catch (e) { console.error(e); }
+                    currentSelectedSeatId = null;
+                }
 
-            if (currentSelectedSeatId === seatId) {
-                try {
-                    const response = await fetch(`/api/v1/seats/${seatId}/hold`, { 
-                        method: 'DELETE',
-                        headers: authHeaders()
+                // 같은 좌석 재클릭 = 취소
+                if (currentSelectedSeatId === seatId) {
+                    const res = await fetch(`/api/v1/seats/${seatId}/hold`, {
+                        method: 'DELETE', headers: authHeaders()
                     });
-                    if (response.ok) {
+                    if (res.ok) {
                         currentSelectedSeatId = null;
                         if (countdownInterval) clearInterval(countdownInterval);
                         document.getElementById('timer').textContent = "05:00";
                         document.getElementById('status-bar').textContent = "좌석 선택이 취소되었습니다.";
-                        fetchSeats();
                     }
-                } catch (error) {
-                    console.error(error);
-                }
-                return;
-            }
-
-            try {
-                const response = await fetch(`/api/v1/seats/${seatId}/hold`, { 
-                    method: 'POST',
-                    headers: authHeaders()
-                });
-                if (response.status === 409) {
-                    alert('이미 다른 사용자가 선택 중인 좌석입니다.');
                     return;
                 }
-                if (!response.ok) return;
 
+                // 새 좌석 선점
+                const res = await fetch(`/api/v1/seats/${seatId}/hold`, {
+                    method: 'POST', headers: authHeaders()
+                });
+                if (res.status === 409) { alert('이미 다른 사용자가 선택 중인 좌석입니다.'); return; }
+                if (!res.ok) return;
                 currentSelectedSeatId = seatId;
                 document.getElementById('status-bar').textContent = `선택한 좌석: ${seatNumber}`;
                 startTimer();
-                fetchSeats();
-            } catch (error) {
-                console.error(error);
+            } catch (e) {
+                console.error(e);
+            } finally {
+                isHolding = false;   // 폴링 가드 OFF
+                fetchSeats();        // 가드 해제 후 즉시 갱신
             }
         }
 
@@ -449,18 +493,10 @@
                 alert("좌석을 먼저 선택해 주세요.");
                 return;
             }
-
-            if (IS_MOCK) {
-                document.getElementById('status-bar').textContent = "결제 페이지로 이동 중입니다...";
-                return;
-            }
-
             try {
                 const response = await fetch(`/api/v1/bookings?seatId=${currentSelectedSeatId}`, {
-                    method: 'POST',
-                    headers: authHeaders()
+                    method: 'POST', headers: authHeaders()
                 });
-                
                 if (response.status === 202) {
                     const data = await response.json();
                     document.getElementById('status-bar').textContent = "결제 요청이 접수되었습니다. 대기 페이지로 이동합니다...";
@@ -479,13 +515,10 @@
 
         function startTimer() {
             if (countdownInterval) clearInterval(countdownInterval);
-            
             let timeRemaining = 300;
             const timerElement = document.getElementById('timer');
-            
             countdownInterval = setInterval(() => {
                 timeRemaining--;
-                
                 if (timeRemaining <= 0) {
                     clearInterval(countdownInterval);
                     timerElement.textContent = "05:00";
@@ -495,7 +528,6 @@
                     fetchSeats();
                     return;
                 }
-                
                 const minutes = String(Math.floor(timeRemaining / 60)).padStart(2, '0');
                 const seconds = String(timeRemaining % 60).padStart(2, '0');
                 timerElement.textContent = `${minutes}:${seconds}`;
@@ -503,10 +535,9 @@
         }
 
         fetchSeats();
-        if (!IS_MOCK) {
-            setInterval(fetchSeats, 2000);
-        }
+        setInterval(fetchSeats, 2000);
         /*]]>*/
     </script>
+
 </body>
 </html>

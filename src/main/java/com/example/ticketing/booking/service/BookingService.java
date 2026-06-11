@@ -1,5 +1,8 @@
 package com.example.ticketing.booking.service;
 
+import com.example.ticketing.booking.entity.Booking;
+import com.example.ticketing.seat.entity.Seat;
+import com.example.ticketing.show.repository.SeatGradeRepository;
 import com.example.ticketing.booking.sqs.BookingMessage;
 import com.example.ticketing.global.exception.ConflictException;
 import com.example.ticketing.global.exception.ErrorCode;
@@ -26,6 +29,7 @@ public class BookingService {
     private final BookingRepository bookingRepository;
     private final SeatRepository seatRepository;
     private final QueueService queueService;
+    private final SeatGradeRepository seatGradeRepository;
 
     public BookingAcceptResponse requestBooking(Long seatId, String userId, String queueToken) {
         Long showId = seatRepository.findShowIdBySeatId(seatId)
@@ -60,15 +64,15 @@ public class BookingService {
         }
 
         // SQS Message 발행 (비동기 처리 요청)
-        sqsTemplate.send("booking-queue", new BookingMessage(requestId, seatId, userId));
+        sqsTemplate.send("booking-queue", new BookingMessage(requestId, seatId, userId, System.currentTimeMillis()));
 
         return new BookingAcceptResponse(requestId, "ACCEPTED");
     }
     
     public BookingStatusResponse getBookingStatus(String requestId) {
-    	String status = redisTemplate.opsForValue().get("result : " + requestId);
+    	String status = redisTemplate.opsForValue().get("result:" + requestId);
     	if (status == null) {
-    		return new BookingStatusResponse(requestId, "처리중");
+    		return new BookingStatusResponse(requestId, "PROCESSING");
     	}
         return new BookingStatusResponse(requestId, status);
     }
@@ -95,6 +99,36 @@ public class BookingService {
             int price,
             java.time.LocalDateTime bookedAt
     ) {}
+
+   @Transactional
+    public void cancelBooking(String bookingId, String userId) {
+        // 1) 예매 조회
+        Booking booking = bookingRepository.findById(bookingId)
+                .orElseThrow(() -> new NotFoundException("예매 내역을 찾을 수 없습니다."));
+ 
+        // 2) 본인 예매인지 검증
+        if (!booking.getUser().getUserId().equals(userId)) {
+            throw new ConflictException(ErrorCode.ACCESS_DENIED);
+        }
+ 
+        Seat seat = booking.getSeat();
+        Long showId = seat.getShow().getShowId();
+        int price = seat.getPrice();
+        Long seatId = seat.getId();
+ 
+        // 3) 좌석 상태 복구 SOLD -> AVAILABLE (더티체킹)
+        seat.available();
+ 
+        // 4) 잔여석 +1 (showId + price로 등급 역매칭)
+        seatGradeRepository.findFirstByShowIdAndPrice(showId, price)
+                .ifPresent(grade -> seatGradeRepository.increaseRemainingSeats(grade.getId()));
+ 
+        // 5) 예매 레코드 삭제
+        bookingRepository.delete(booking);
+ 
+        // 6) Redis sold 키 정리 (재예매 가능하도록)
+        redisTemplate.delete("sold:" + seatId);
+    }
 
     public record BookingAcceptResponse(String requestId, String status) {}
     public record BookingStatusResponse(String requestId, String status) {}
