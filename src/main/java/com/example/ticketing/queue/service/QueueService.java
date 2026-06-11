@@ -3,7 +3,9 @@ package com.example.ticketing.queue.service;
 import com.example.ticketing.global.exception.BusinessException;
 import com.example.ticketing.global.exception.NotFoundException;
 import com.example.ticketing.global.exception.ErrorCode;
+import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -16,6 +18,7 @@ import java.util.HashSet;
 import java.util.Set;
 import java.util.UUID;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class QueueService {
@@ -31,6 +34,19 @@ public class QueueService {
 
     @Value("${queue.promotion-batch-size:100}")
     private int promotionBatchSize;
+
+    // ⚠️ 부하테스트(A 방식) 전용: 큐토큰 검증 우회 스위치.
+    //    기본 false. dev/loadtest 프로파일에서만 QUEUE_TOKEN_BYPASS=true 로 켤 것.
+    //    운영 프로파일에선 절대 true 금지 (대기열 자체가 무력화됨).
+    @Value("${queue.token.bypass:false}")
+    private boolean queueTokenBypass;
+
+    @PostConstruct
+    void warnIfBypassEnabled() {
+        if (queueTokenBypass) {
+            log.warn("==== QUEUE TOKEN BYPASS 활성화됨 (부하테스트 모드). 운영 환경이면 즉시 끌 것! ====");
+        }
+    }
 
     public String joinQueue(Long showId, String userId) {
         double score = Instant.now().toEpochMilli();
@@ -93,6 +109,12 @@ public class QueueService {
     }
 
     public void validateQueueToken(String token, Long showId, String userId) {
+        // ⚠️ 부하테스트(A) 모드: 큐토큰 검증을 통째로 건너뜀.
+        //    인터셉터/서비스 양쪽이 이 메서드를 타므로 여기 한 곳이면 둘 다 우회됨.
+        if (queueTokenBypass) {
+            return;
+        }
+
         if (!StringUtils.hasText(token)) {
             throw new BusinessException(ErrorCode.QUEUE_TOKEN_REQUIRED);
         }
