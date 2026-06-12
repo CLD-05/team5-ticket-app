@@ -251,8 +251,10 @@
       }
 
       showQueue();
-      await joinQueue();
-      pollTimer = setInterval(refreshStatus, pollIntervalMs);
+      const shouldPoll = await enterQueue();
+      if (shouldPoll) {
+        pollTimer = setInterval(refreshStatus, pollIntervalMs);
+      }
     });
 
     function getAccessToken() {
@@ -275,21 +277,24 @@
       document.getElementById("queueBox").classList.remove("hidden");
     }
 
-    async function joinQueue() {
+    async function enterQueue() {
       try {
-        const response = await fetch(`/api/v1/shows/${showId}/queue/join`, {
+        const response = await fetch(`/api/v1/shows/${showId}/queue/enter`, {
           method: "POST",
           headers: authHeaders()
         });
 
         if (!response.ok) {
           await renderWaitingError(response);
-          return;
+          return false;
         }
 
-        await refreshStatus();
+        const data = await response.json();
+        renderStatus(data);
+        return !(data.status === "ACTIVE" || data.canEnter === true);
       } catch (error) {
         renderWaitingError();
+        return false;
       }
     }
 

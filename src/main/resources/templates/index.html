@@ -370,13 +370,40 @@
         }
     }
 
-    function goToBooking(showId) {
+    async function goToBooking(showId) {
         const token = getAccessToken();
         if (!token) {
             alert("로그인이 필요합니다. 로그인 페이지로 이동합니다.");
             window.location.href = "/login";
-        } else {
+            return;
+        }
+
+        try {
+            const response = await fetch(`/api/v1/shows/${showId}/queue/enter`, {
+                method: "POST",
+                headers: {
+                    Authorization: `Bearer ${token}`
+                }
+            });
+
+            if (!response.ok) {
+                alert("예매 진입 상태를 확인하지 못했습니다. 잠시 후 다시 시도해주세요.");
+                return;
+            }
+
+            const data = await response.json();
+            if (data.status === "ACTIVE" || data.canEnter === true) {
+                sessionStorage.setItem("queueToken", data.queueToken);
+                sessionStorage.setItem("queueShowId", String(showId));
+                document.cookie = `accessToken=${token}; path=/; SameSite=Lax`;
+                document.cookie = `queueToken=${data.queueToken}; path=/; SameSite=Lax`;
+                window.location.href = `/shows/${showId}/seat`;
+                return;
+            }
+
             window.location.href = `/shows/${showId}/queue`;
+        } catch (error) {
+            alert("서버 연결에 실패했습니다. 잠시 후 다시 시도해주세요.");
         }
     }
   </script>
