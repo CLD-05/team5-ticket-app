@@ -98,6 +98,19 @@
 
         let pollTimer = null;
 
+        // 백엔드 status 코드값 → 화면 표기 매핑 (BookingService/BookingResult와 동일 vocabulary)
+        //   PROCESSING : 워커가 아직 결과 미기록 (계속 폴링)
+        //   CONFIRMED  : 확정 성공
+        //   CONFLICT   : 동시성 패배 (이미 다른 사용자가 선점/확정)
+        //   FAILED     : 시스템 오류 (좌석/사용자 없음 등)
+        const FAIL_REASONS = {
+            CONFLICT: '이미 다른 사용자가 예매한 좌석입니다.',
+            FAILED: '예매 처리 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.'
+        };
+
+        // 워커 지연/장애로 PROCESSING이 끝나지 않을 때를 대비한 폴링 타임아웃 (1초 간격 × 30회 = 30초)
+        const MAX_POLLS = 30;
+
         function startPolling(requestId, token) {
             const statusBadge = document.getElementById('status');
             const errorMessage = document.getElementById('errorMessage');
@@ -105,20 +118,33 @@
             const title = document.getElementById('title');
 
             clearInterval(pollTimer);
-            
+            let attempts = 0;
+
+            const showFailure = (reason) => {
+                clearInterval(pollTimer);
+                spinner.style.display = 'none';
+                statusBadge.style.background = '#fef2f2';
+                statusBadge.style.color = '#ef4444';
+                statusBadge.innerText = '❌ 예매 실패';
+                errorMessage.innerText = `사유: ${reason}`;
+                errorMessage.style.display = 'block';
+                setTimeout(() => { window.location.href = '/'; }, 5000);
+            };
+
             pollTimer = setInterval(async () => {
+                attempts++;
                 try {
                     const res = await fetch(`/api/v1/bookings/status/${requestId}`, {
                         headers: { 'Authorization': `Bearer ${token}` }
                     });
-                    
+
                     if (!res.ok) {
                         throw new Error(`서버 응답 오류 (${res.status})`);
                     }
 
                     const data = await res.json();
-                    
-                    if (data.status === '예매 성공') {
+
+                    if (data.status === 'CONFIRMED') {
                         clearInterval(pollTimer);
                         statusBadge.style.background = '#ecfdf5';
                         statusBadge.style.color = '#10b981';
@@ -127,26 +153,21 @@
                         setTimeout(() => {
                             window.location.href = '/booking/complete';
                         }, 1200);
-                    } else if (data.status === '처리중') {
+                    } else if (data.status === 'PROCESSING') {
                         statusBadge.innerText = '⏳ 예매 승인 대기 중...';
+                        if (attempts >= MAX_POLLS) {
+                            showFailure('처리 시간이 초과되었습니다. 마이페이지에서 예매 내역을 확인해 주세요.');
+                        }
                     } else {
-                        // 실패 시 처리
-                        clearInterval(pollTimer);
-                        spinner.style.display = 'none';
-                        statusBadge.style.background = '#fef2f2';
-                        statusBadge.style.color = '#ef4444';
-                        statusBadge.innerText = '❌ 예매 실패';
-                        
-                        errorMessage.innerText = `사유: ${data.status || '대기열 타임아웃 또는 선점 만료'}`;
-                        errorMessage.style.display = 'block';
-                        
-                        setTimeout(() => {
-                            window.location.href = '/';
-                        }, 5000);
+                        // CONFLICT / FAILED 등 실패 코드
+                        showFailure(FAIL_REASONS[data.status] || '대기열 타임아웃 또는 선점 만료');
                     }
                 } catch (error) {
                     console.error(error);
                     statusBadge.innerText = '⚠️ 통신 지연 중...';
+                    if (attempts >= MAX_POLLS) {
+                        showFailure('서버와 통신이 지연되고 있습니다. 마이페이지에서 예매 내역을 확인해 주세요.');
+                    }
                 }
             }, 1000);
         }

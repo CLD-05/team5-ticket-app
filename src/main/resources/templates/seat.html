@@ -134,6 +134,12 @@
         .AVAILABLE-R   { background-color: #8a2be2; }
         .AVAILABLE-S   { background-color: #00cd3c; }
         .HOLD { background-color: #999999; }
+        /* 내가 지금 선택한 좌석 (낙관적 업데이트 즉시 반영용) — 배경색 없이 테두리+확대로만 구분 */
+        .SELECTED {
+            box-shadow: 0 0 0 3px #1f2937;
+            transform: scale(1.08);
+            z-index: 1;
+        }
         .SOLD {
             background-color: #e9ecef;
             cursor: not-allowed;
@@ -398,7 +404,15 @@
                 if (!targetGrid) return;
 
                 const div = document.createElement('div');
-                if (seat.status === 'AVAILABLE') {
+                // 좌석 칸을 ID로 직접 찾아 부분 갱신할 수 있도록 데이터 속성 부여
+                div.dataset.seatId = seat.seatId;
+                div.dataset.seatNumber = seat.seatNumber;
+                div.dataset.cls = g.cls;
+
+                // 내가 지금 선택 중인 좌석이면 등급 색 유지 + 테두리로 표시
+                if (seat.seatId === currentSelectedSeatId) {
+                    div.className = `seat AVAILABLE-${g.cls} SELECTED`;
+                } else if (seat.status === 'AVAILABLE') {
                     div.className = `seat AVAILABLE-${g.cls}`;
                 } else {
                     div.className = `seat ${seat.status}`;
@@ -406,7 +420,8 @@
                 div.title = `${seat.seatNumber} [${g.name}석/${g.zone}구역] - ${seat.status}`;
 
                 div.onclick = () => {
-                    if (seat.status === 'AVAILABLE' || seat.status === 'HOLD') {
+                    if (seat.status === 'AVAILABLE' || seat.status === 'HOLD'
+                        || seat.seatId === currentSelectedSeatId) {
                         requestSeatHold(seat.seatId, seat.seatNumber);
                     }
                 };
@@ -444,47 +459,86 @@
             legendList.innerHTML = rows;
         }
 
-        async function requestSeatHold(seatId, seatNumber) {
-            isHolding = true;  // 폴링 가드 ON
-            try {
-                // 이미 다른 좌석 선점 중이면 먼저 해제
-                if (currentSelectedSeatId !== null && currentSelectedSeatId !== seatId) {
-                    try {
-                        await fetch(`/api/v1/seats/${currentSelectedSeatId}/hold`, {
-                            method: 'DELETE', headers: authHeaders()
-                        });
-                    } catch (e) { console.error(e); }
-                    currentSelectedSeatId = null;
-                }
+        // 좌석 칸 하나만 즉시 다시 칠한다 (전체 재조회 없이 부분 갱신)
+        //   visual: 'SELECTED' | 'AVAILABLE' | 'HOLD' | 'SOLD'
+        function paintSeat(seatId, visual) {
+            const div = document.querySelector(`.seat[data-seat-id="${seatId}"]`);
+            if (!div) return;
+            const cls = div.dataset.cls || 'S';
+            if (visual === 'SELECTED') {
+                // 등급 색을 유지한 채 테두리(SELECTED)만 얹는다
+                div.className = `seat AVAILABLE-${cls} SELECTED`;
+            } else if (visual === 'AVAILABLE') {
+                div.className = `seat AVAILABLE-${cls}`;
+            } else {
+                div.className = `seat ${visual}`;
+            }
+        }
 
-                // 같은 좌석 재클릭 = 취소
-                if (currentSelectedSeatId === seatId) {
-                    const res = await fetch(`/api/v1/seats/${seatId}/hold`, {
-                        method: 'DELETE', headers: authHeaders()
-                    });
-                    if (res.ok) {
+        async function requestSeatHold(seatId, seatNumber) {
+            const previousSeatId = currentSelectedSeatId;
+
+            // ── 같은 좌석 재클릭 = 선택 취소 ──
+            if (previousSeatId === seatId) {
+                // 낙관적: 화면 즉시 해제
+                paintSeat(seatId, 'AVAILABLE');
+                currentSelectedSeatId = null;
+                if (countdownInterval) clearInterval(countdownInterval);
+                document.getElementById('timer').textContent = "05:00";
+                document.getElementById('status-bar').textContent = "좌석 선택이 취소되었습니다.";
+                // 서버 해제는 백그라운드 (결과 안 기다림)
+                fetch(`/api/v1/seats/${seatId}/hold`, { method: 'DELETE', headers: authHeaders() })
+                    .catch(e => console.error(e));
+                return;
+            }
+
+            // ── 새 좌석 선택 (또는 다른 좌석으로 변경) ──
+            // 1) 낙관적 화면 반영: 클릭 즉시 색/상태바/타이머 갱신 (네트워크 대기 X)
+            if (previousSeatId !== null) paintSeat(previousSeatId, 'AVAILABLE');
+            paintSeat(seatId, 'SELECTED');
+            currentSelectedSeatId = seatId;
+            document.getElementById('status-bar').textContent = `선택한 좌석: ${seatNumber}`;
+            startTimer();
+
+            // 2) 서버 선점은 백그라운드. 옛 좌석 해제는 새 좌석 확정 후에 (실패 시 롤백 위해 미리 안 풂)
+            isHolding = true;  // 폴링이 깜빡임 유발하지 않도록 가드
+            try {
+                const res = await fetch(`/api/v1/seats/${seatId}/hold`, {
+                    method: 'POST', headers: authHeaders()
+                });
+
+                if (res.status === 409 || !res.ok) {
+                    // 롤백: 방금 칠한 새 좌석 되돌리고, 이전 선택이 있었으면 복원
+                    paintSeat(seatId, 'AVAILABLE');
+                    if (res.status === 409) alert('이미 다른 사용자가 선택 중인 좌석입니다.');
+                    if (previousSeatId !== null) {
+                        paintSeat(previousSeatId, 'SELECTED');
+                        currentSelectedSeatId = previousSeatId;
+                        document.getElementById('status-bar').textContent = `선택한 좌석 유지 중`;
+                    } else {
                         currentSelectedSeatId = null;
                         if (countdownInterval) clearInterval(countdownInterval);
                         document.getElementById('timer').textContent = "05:00";
-                        document.getElementById('status-bar').textContent = "좌석 선택이 취소되었습니다.";
+                        document.getElementById('status-bar').textContent = "좌석을 선택해 주세요.";
                     }
                     return;
                 }
 
-                // 새 좌석 선점
-                const res = await fetch(`/api/v1/seats/${seatId}/hold`, {
-                    method: 'POST', headers: authHeaders()
-                });
-                if (res.status === 409) { alert('이미 다른 사용자가 선택 중인 좌석입니다.'); return; }
-                if (!res.ok) return;
-                currentSelectedSeatId = seatId;
-                document.getElementById('status-bar').textContent = `선택한 좌석: ${seatNumber}`;
-                startTimer();
+                // 새 좌석 확정 성공 → 이제 옛 좌석 서버 해제 (백그라운드)
+                if (previousSeatId !== null) {
+                    fetch(`/api/v1/seats/${previousSeatId}/hold`, { method: 'DELETE', headers: authHeaders() })
+                        .catch(e => console.error(e));
+                }
             } catch (e) {
                 console.error(e);
+                // 네트워크 오류 → 낙관적 상태 롤백
+                paintSeat(seatId, 'AVAILABLE');
+                currentSelectedSeatId = previousSeatId;
+                if (previousSeatId !== null) paintSeat(previousSeatId, 'SELECTED');
             } finally {
-                isHolding = false;   // 폴링 가드 OFF
-                fetchSeats();        // 가드 해제 후 즉시 갱신
+                isHolding = false;
+                // 전체 재조회로 화면을 막지 않는다(여기서 fetchSeats 호출 안 함).
+                // 잔여석/타인 변경 반영은 2초 주기 폴링이 알아서 동기화.
             }
         }
 
