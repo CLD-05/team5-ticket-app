@@ -68,7 +68,7 @@ public class BookingService {
         }
 
         // SQS Message 발행 (비동기 처리 요청)
-        sqsTemplate.send(bookingQueue, new BookingMessage(requestId, seatId, userId, System.currentTimeMillis()));
+        sqsTemplate.send(bookingQueue, new BookingMessage(requestId, showId, seatId, userId, queueToken, System.currentTimeMillis()));
 
         return new BookingAcceptResponse(requestId, "ACCEPTED");
     }

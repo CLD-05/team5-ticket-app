@@ -108,6 +108,24 @@ public class QueueService {
         redisTemplate.delete(userTokenKey(showId, userId));
     }
 
+    public void completeAdmission(Long showId, String userId, String queueToken) {
+        if (queueTokenBypass || !StringUtils.hasText(queueToken)) {
+            return;
+        }
+
+        String userTokenKey = userTokenKey(showId, userId);
+        String currentToken = redisTemplate.opsForValue().get(userTokenKey);
+        if (!queueToken.equals(currentToken)) {
+            log.warn("예매 확정 후 Queue Token 정리 건너뜀 - 현재 토큰과 메시지 토큰 불일치. showId={}, userId={}", showId, userId);
+            return;
+        }
+
+        // 예매 확정(CONFIRMED) 이후에는 같은 입장 권한으로 추가 예매를 시도할 수 없도록 ACTIVE와 토큰 매핑을 정리
+        redisTemplate.opsForZSet().remove(activeQueueKey(showId), userId);
+        redisTemplate.delete(tokenKey(queueToken));
+        redisTemplate.delete(userTokenKey);
+    }
+
     public void validateQueueToken(String token, Long showId, String userId) {
         // ⚠️ 부하테스트(A) 모드: 큐토큰 검증을 통째로 건너뜀.
         //    인터셉터/서비스 양쪽이 이 메서드를 타므로 여기 한 곳이면 둘 다 우회됨.
