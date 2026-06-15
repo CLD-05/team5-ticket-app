@@ -26,7 +26,7 @@ public class SeatController {
 
     private final SeatService seatService;
 
-    @GetMapping({"/performances/{id}/seats", "/shows/{id}/seats"})
+    @GetMapping("/performances/{id}/seats")
     public ResponseEntity<List<SeatResponseDto>> getSeats(
             @PathVariable("id") Long id
     ) {
