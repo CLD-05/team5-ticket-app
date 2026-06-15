@@ -787,13 +787,13 @@
             <!-- Code Block Card -->
             <div class="card" style="margin-bottom: 1.5rem;">
                 <div class="code-header">
-                    <span>Generated: k6_script.js</span>
+                    <span>Generated: k6_script.js (✏️ 클릭하여 직접 수정 가능)</span>
                     <div style="display: flex; gap: 0.5rem;">
                         <button class="copy-btn" onclick="copyCode()">코드 복사하기</button>
                         <button class="copy-btn" id="run-btn" onclick="runLiveTest()" style="background: linear-gradient(to right, var(--primary), var(--accent));">⚡ 웹에서 바로 실행하기</button>
                     </div>
                 </div>
-                <pre><code id="code-block">// 스크립트 생성 로딩 중...</code></pre>
+                <pre><code id="code-block" contenteditable="true" spellcheck="false">// 스크립트 생성 로딩 중...</code></pre>
             </div>
 
             <!-- Diagnostic Report Card -->
@@ -969,7 +969,7 @@ const TEST_PASSWORD = 'password';
 export function setup() {
     console.log('--- [Setup] 사전 로그인 시작 ---');
     const tokens = [];
-    const totalTestUsers = Math.min(users.length, 1000);
+    const totalTestUsers = Math.min(users.length, ${vus});
     
     for (let i = 0; i < totalTestUsers; i++) {
         const user = users[i];

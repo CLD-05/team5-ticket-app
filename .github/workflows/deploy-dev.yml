@@ -37,6 +37,12 @@ jobs:
           java-version: "17"
           cache: maven
 
+      # PR 단계에서 Dockerfile lint 검증
+      - name: Lint Dockerfile
+        uses: hadolint/hadolint-action@v3.1.0
+        with:
+          dockerfile: Dockerfile
+
       # 1. app repo에서 build/test
       - name: Run tests
         run: mvn -B test
