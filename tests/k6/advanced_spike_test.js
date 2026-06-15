@@ -14,7 +14,7 @@ import exec from 'k6/execution';
  */
 
 // 1. 설정값 정의 (환경 변수 적용 가능)
-const BASE_URL = __ENV.TARGET_URL || 'http://ticket-api.ticket-platform.svc.cluster.local:8080/api/v1';
+const BASE_URL = __ENV.TARGET_URL || 'http://localhost:8080/api/v1';
 const MAX_SEATS = parseInt(__ENV.MAX_SEATS || '10000'); // 테스트할 총 좌석 수
 const TEST_PASSWORD = __ENV.TEST_PASSWORD || 'password123';
 
@@ -46,9 +46,9 @@ export function setup() {
     console.log('--- [Setup] 사전 로그인 및 토큰 발급 시작 ---');
     const tokens = [];
     
-    // DB에 사전에 생성된 user1 ~ user1000 사용자 정보를 바탕으로 로그인 요청을 보냅니다.
-    // (테스트 유저 수에 맞게 조절 가능)
-    const totalTestUsers = 1000; 
+    // DB에 사전에 생성된 사용자 정보를 바탕으로 로그인 요청을 보냅니다.
+    // (환경 변수 MAX_VUS에 따라 연동되며, 미지정 시 기본 1000명)
+    const totalTestUsers = Math.min(10000, parseInt(__ENV.MAX_VUS || '1000')); 
     
     for (let i = 1; i <= totalTestUsers; i++) {
         const username = `user${i}`;
