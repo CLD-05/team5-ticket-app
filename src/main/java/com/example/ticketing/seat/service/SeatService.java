@@ -9,6 +9,7 @@ import com.example.ticketing.seat.entity.SeatStatus;
 import com.example.ticketing.seat.repository.SeatRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.data.redis.core.script.DefaultRedisScript;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -27,10 +28,6 @@ public class SeatService {
 
     @Value("${app.seat.hold-ttl-seconds:300}")
     private long holdTtlSeconds;
-
-    private Duration getHoldTtl() {
-        return Duration.ofSeconds(holdTtlSeconds);
-    }
 
     @Transactional(readOnly = true)
     public List<SeatResponseDto> getSeats(Long showId) {
@@ -57,21 +54,33 @@ public class SeatService {
 
         String key = "seat:" + seatId;
 
-        Boolean success = redisTemplate.opsForValue()
-                .setIfAbsent(key, userId, getHoldTtl());
-
-        if (!Boolean.TRUE.equals(success)) {
+        
+        Seat seat = seatRepository.findById(seatId)
+                .orElseThrow(() -> new NotFoundException("좌석이 존재하지 않습니다."));
+ 
+        if (seat.getStatus() == SeatStatus.SOLD) {
+            throw new ConflictException(ErrorCode.SEAT_ALREADY_SOLD);
+        }
+ 
+        String luaScript =
+            "if redis.call('exists', KEYS[1]) == 0 then " +
+            "  redis.call('set', KEYS[1], ARGV[1], 'EX', ARGV[2]) " +
+            "  return 1 " +
+            "else " +
+            "  return 0 " +
+            "end";
+ 
+        Long result = redisTemplate.execute(
+            new DefaultRedisScript<>(luaScript, Long.class),
+            List.of(key),
+            userId, String.valueOf(holdTtlSeconds)
+        );
+ 
+        if (!Long.valueOf(1L).equals(result)) {
             throw new ConflictException(ErrorCode.SEAT_ALREADY_HELD);
         }
 
-        Seat seat = seatRepository.findById(seatId)
-                .orElseThrow(() -> new NotFoundException("좌석이 존재하지 않습니다."));
-
-        if (seat.getStatus() == SeatStatus.SOLD) {
-            redisTemplate.delete(key);
-            throw new ConflictException(ErrorCode.SEAT_ALREADY_SOLD);
-        }
-
+        
         return new SeatHoldResponse(seatId, (int) holdTtlSeconds);
     }
 
