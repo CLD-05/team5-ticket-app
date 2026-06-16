@@ -1,0 +1,192 @@
+name: CI/CD - Deploy Prod
+
+on:
+  # 현재 prod 배포는 Actions 화면에서 수동 실행
+  workflow_dispatch:
+  # develop merge 기준 자동 배포가 필요할 경우 아래 주석 해제
+  # push:
+  #   branches:
+  #     - develop
+  # 프로젝트 최종 규칙에 맞출 때는 develop을 main으로 치환
+
+env:
+  AWS_REGION: ap-northeast-2
+  ECR_REPOSITORY: team5-prod-app
+  CONFIG_REPOSITORY: CLD-05/team5-ticket-config
+  # 현재 팀 작업 흐름은 develop 기준
+  # 프로젝트 최종 규칙에 맞출 때는 main으로 치환
+  CONFIG_BRANCH: develop
+  # prod GitOps 매니페스트가 생성되면 이 파일의 image tag를 갱신
+  CONFIG_KUSTOMIZATION_PATH: envs/prod/ticket-service/kustomization.yaml
+
+jobs:
+  ci:
+    name: Build and Test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout app repository
+        uses: actions/checkout@v4
+
+      # PR/배포 전 공통 검증: Java 17 기준 테스트 및 패키징
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+          cache: maven
+
+      # Dockerfile 문법/권장 규칙 확인
+      - name: Lint Dockerfile
+        uses: hadolint/hadolint-action@v3.1.0
+        with:
+          dockerfile: Dockerfile
+
+      - name: Run tests
+        run: mvn -B test
+
+      - name: Build jar
+        run: mvn -B package -DskipTests
+
+  deploy-prod:
+    name: Build Image, Push Prod ECR, Update Config
+    runs-on: ubuntu-latest
+    needs: ci
+    # GitHub Environment prod 승인 게이트
+    environment: prod
+
+    permissions:
+      contents: read
+      # AWS Access Key 대신 OIDC Role assume
+      id-token: write
+
+    steps:
+      - name: Checkout app repository
+        uses: actions/checkout@v4
+
+      # prod ECR immutable 정책 대응
+      # commit SHA 기반 고유 태그로 배포 이력 추적 및 롤백 기준 확보
+      - name: Set image tag
+        id: vars
+        run: |
+          SHORT_SHA="${GITHUB_SHA::7}"
+          IMAGE_TAG="prod-${SHORT_SHA}"
+          echo "image_tag=${IMAGE_TAG}" >> "$GITHUB_OUTPUT"
+
+      # GitHub Environment prod에 AWS_PROD_ROLE_TO_ASSUME secret 등록 필요
+      # 예: arn:aws:iam::000000000000:role/team5-gha-prod-role
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_PROD_ROLE_TO_ASSUME }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      # prod는 latest 태그 미사용
+      # ECR immutable 정책과 배포 재현성을 위해 prod-${SHA} 태그만 사용
+      - name: Build Docker image
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          IMAGE_TAG: ${{ steps.vars.outputs.image_tag }}
+        run: |
+          docker build \
+            -t "${ECR_REGISTRY}/${ECR_REPOSITORY}:${IMAGE_TAG}" \
+            .
+
+      - name: Push Docker image to ECR
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          IMAGE_TAG: ${{ steps.vars.outputs.image_tag }}
+        run: |
+          docker push "${ECR_REGISTRY}/${ECR_REPOSITORY}:${IMAGE_TAG}"
+
+      - name: Checkout config repository
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ env.CONFIG_REPOSITORY }}
+          ref: ${{ env.CONFIG_BRANCH }}
+          token: ${{ secrets.CONFIG_REPO_TOKEN }}
+          path: config-repo
+
+      # Kubernetes 직접 배포 없음
+      # config repo image tag만 변경하고 실제 배포는 ArgoCD가 GitOps 방식으로 수행
+      - name: Update image tag in config repository
+        env:
+          IMAGE_TAG: ${{ steps.vars.outputs.image_tag }}
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+        run: |
+          cd config-repo
+
+          # prod 매니페스트 미생성 시 명확한 실패 처리
+          if [ ! -f "${CONFIG_KUSTOMIZATION_PATH}" ]; then
+            echo "Config file not found: ${CONFIG_KUSTOMIZATION_PATH}"
+            echo "Create the prod ticket-service manifests before running prod deployment."
+            exit 1
+          fi
+
+          # kustomization.yaml의 ticket-service image newName/newTag만 갱신
+          python - <<'PY'
+          import os
+          from pathlib import Path
+
+          path = Path(os.environ["CONFIG_KUSTOMIZATION_PATH"])
+          image_name = f"{os.environ['ECR_REGISTRY']}/{os.environ['ECR_REPOSITORY']}"
+          image_tag = os.environ["IMAGE_TAG"]
+
+          lines = path.read_text().splitlines()
+          output = []
+          in_ticket_image = False
+          updated_name = False
+          updated_tag = False
+
+          for line in lines:
+              stripped = line.strip()
+              if stripped == "- name: ticket-service":
+                  in_ticket_image = True
+                  output.append(line)
+                  continue
+
+              if in_ticket_image and stripped.startswith("newName:"):
+                  indent = line[: len(line) - len(line.lstrip())]
+                  output.append(f"{indent}newName: {image_name}")
+                  updated_name = True
+                  continue
+
+              if in_ticket_image and stripped.startswith("newTag:"):
+                  indent = line[: len(line) - len(line.lstrip())]
+                  output.append(f"{indent}newTag: {image_tag}")
+                  in_ticket_image = False
+                  updated_tag = True
+                  continue
+
+              output.append(line)
+
+          if not updated_name or not updated_tag:
+              raise SystemExit("ticket-service image entry was not found in kustomization.yaml")
+
+          path.write_text("\n".join(output) + "\n")
+          PY
+
+          git diff -- "${CONFIG_KUSTOMIZATION_PATH}"
+
+      # config repo 변경 발생 시에만 commit/push
+      # 이후 ArgoCD가 config repo 변경을 감지해 prod 클러스터에 반영
+      - name: Commit and push config update
+        env:
+          IMAGE_TAG: ${{ steps.vars.outputs.image_tag }}
+        run: |
+          cd config-repo
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          if git diff --quiet -- "${CONFIG_KUSTOMIZATION_PATH}"; then
+            echo "No config image tag changes to commit."
+            exit 0
+          fi
+
+          git add "${CONFIG_KUSTOMIZATION_PATH}"
+          git commit -m "chore: update prod ticket-service image tag to ${IMAGE_TAG}"
+          git push origin "${CONFIG_BRANCH}"
