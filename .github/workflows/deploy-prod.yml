@@ -16,8 +16,8 @@ env:
   # 현재 팀 작업 흐름은 develop 기준
   # 프로젝트 최종 규칙에 맞출 때는 main으로 치환
   CONFIG_BRANCH: develop
-  # prod GitOps 매니페스트가 생성되면 이 파일의 image tag를 갱신
-  CONFIG_KUSTOMIZATION_PATH: envs/prod/ticket-service/kustomization.yaml
+  # prod GitOps 매니페스트 image tag 갱신 대상
+  CONFIG_KUSTOMIZATION_PATH: apps/ticket-app/overlays/prod/kustomization.yaml
 
 jobs:
   ci:
