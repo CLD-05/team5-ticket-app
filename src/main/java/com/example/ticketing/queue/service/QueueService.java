@@ -3,6 +3,7 @@ package com.example.ticketing.queue.service;
 import com.example.ticketing.global.exception.BusinessException;
 import com.example.ticketing.global.exception.NotFoundException;
 import com.example.ticketing.global.exception.ErrorCode;
+import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -268,5 +269,15 @@ public class QueueService {
         return showId + ":" + userId;
     }
 
-    public record QueueStatusResponse(String status, Long position, boolean canEnter, String queueToken) {}
+    @Schema(description = "대기열 상태 응답")
+    public record QueueStatusResponse(
+            @Schema(description = "대기열 상태", example = "WAITING", allowableValues = {"WAITING", "ACTIVE"})
+            String status,
+            @Schema(description = "대기 순번. ACTIVE 상태에서는 null입니다.", example = "37")
+            Long position,
+            @Schema(description = "예매 화면 입장 가능 여부", example = "false")
+            boolean canEnter,
+            @Schema(description = "예매 요청에 사용할 Queue Token. WAITING 상태에서는 null입니다.", example = "550e8400-e29b-41d4-a716-446655440000")
+            String queueToken
+    ) {}
 }

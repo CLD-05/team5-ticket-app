@@ -9,6 +9,7 @@ import com.example.ticketing.global.exception.ErrorCode;
 import com.example.ticketing.global.exception.NotFoundException;
 import com.example.ticketing.queue.service.QueueService;
 import com.example.ticketing.seat.repository.SeatRepository;
+import io.swagger.v3.oas.annotations.media.Schema;
 import io.awspring.cloud.sqs.operations.SqsTemplate;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
@@ -95,12 +96,19 @@ public class BookingService {
                 .collect(Collectors.toList());
     }
 
+    @Schema(description = "내 예매 내역 응답")
     public record UserBookingResponse(
+            @Schema(description = "예매 ID", example = "BK-20240615-0001")
             String bookingId,
+            @Schema(description = "공연 제목", example = "S-Tier Concert")
             String showTitle,
+            @Schema(description = "공연장", example = "KSPO DOME")
             String venue,
+            @Schema(description = "좌석 번호", example = "A-1")
             String seatNumber,
+            @Schema(description = "예매 가격", example = "150000")
             int price,
+            @Schema(description = "예매 일시", example = "2026-06-15T19:30:00")
             java.time.LocalDateTime bookedAt
     ) {}
 
@@ -134,6 +142,19 @@ public class BookingService {
         redisTemplate.delete("sold:" + seatId);
     }
 
-    public record BookingAcceptResponse(String requestId, String status) {}
-    public record BookingStatusResponse(String requestId, String status) {}
+    @Schema(description = "예매 요청 접수 응답")
+    public record BookingAcceptResponse(
+            @Schema(description = "예매 요청 ID", example = "9a1f57bc-ff25-4a8b-a9a3-5c93847f0f52")
+            String requestId,
+            @Schema(description = "접수 상태", example = "ACCEPTED")
+            String status
+    ) {}
+
+    @Schema(description = "예매 처리 상태 응답")
+    public record BookingStatusResponse(
+            @Schema(description = "예매 요청 ID", example = "9a1f57bc-ff25-4a8b-a9a3-5c93847f0f52")
+            String requestId,
+            @Schema(description = "처리 상태", example = "PROCESSING", allowableValues = {"PROCESSING", "CONFIRMED", "FAILED"})
+            String status
+    ) {}
 }
