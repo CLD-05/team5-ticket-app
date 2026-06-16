@@ -19,7 +19,7 @@ env:
   ECR_REPOSITORY: team5-dev-app
   CONFIG_REPOSITORY: CLD-05/team5-ticket-config
   CONFIG_BRANCH: develop
-  CONFIG_KUSTOMIZATION_PATH: envs/dev/ticket-service/kustomization.yaml
+  CONFIG_KUSTOMIZATION_PATH: apps/ticket-app/overlays/dev/kustomization.yaml
 
 jobs:
   ci:
