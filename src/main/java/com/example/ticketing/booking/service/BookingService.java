@@ -68,8 +68,13 @@ public class BookingService {
             throw new ConflictException(ErrorCode.HOLD_EXPIRED);
         }
 
-        // SQS Message 발행 (비동기 처리 요청)
-        sqsTemplate.send(bookingQueue, new BookingMessage(requestId, showId, seatId, userId, queueToken, System.currentTimeMillis()));
+        // FIFO 큐 전송: 공연별 순서 보장 및 중복 방지 헤더 포함
+        sqsTemplate.send(to -> to
+            .queue(bookingQueue)
+            .payload(new BookingMessage(requestId, showId, seatId, userId, queueToken, System.currentTimeMillis()))
+            .header("message-group-id", String.valueOf(showId))
+            .header("message-deduplication-id", requestId)
+        );
 
         return new BookingAcceptResponse(requestId, "ACCEPTED");
     }
