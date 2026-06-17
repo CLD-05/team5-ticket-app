@@ -409,6 +409,13 @@
                 div.dataset.seatNumber = seat.seatNumber;
                 div.dataset.cls = g.cls;
 
+                // ── 새로고침 시 내가 선점한 좌석 정보 복구 ──
+                if (seat.isMyHold && currentSelectedSeatId === null) {
+                    currentSelectedSeatId = seat.seatId;
+                    document.getElementById('status-bar').textContent = `선택한 좌석: ${seat.seatNumber}`;
+                    startTimer();
+                }
+
                 // 내가 지금 선택 중인 좌석이면 등급 색 유지 + 테두리로 표시
                 if (seat.seatId === currentSelectedSeatId) {
                     div.className = `seat AVAILABLE-${g.cls} SELECTED`;
