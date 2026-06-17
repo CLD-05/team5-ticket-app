@@ -53,9 +53,10 @@ public class SeatController {
     @GetMapping("/performances/{id}/seats")
     public ResponseEntity<List<SeatResponseDto>> getSeats(
             @Parameter(description = "공연 ID", example = "1")
-            @PathVariable("id") Long id
+            @PathVariable("id") Long id,
+            @AuthenticationPrincipal String userId
     ) {
-        return ResponseEntity.ok(seatService.getSeats(id));
+        return ResponseEntity.ok(seatService.getSeats(id, userId));
     }
 
     @Operation(summary = "좌석 선점", description = "로그인 사용자가 좌석을 임시 선점합니다. 선점 정보는 제한 시간 동안 유지됩니다.",

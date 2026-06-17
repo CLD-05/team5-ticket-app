@@ -30,18 +30,26 @@ public class SeatService {
     private long holdTtlSeconds;
 
     @Transactional(readOnly = true)
-    public List<SeatResponseDto> getSeats(Long showId) {
+    public List<SeatResponseDto> getSeats(Long showId, String userId) {
         return seatRepository.findByShowId(showId).stream().map(seat -> {
             SeatStatus status = seat.getStatus();
-            if (status == SeatStatus.AVAILABLE && Boolean.TRUE.equals(redisTemplate.hasKey("seat:" + seat.getId()))) {
-                status = SeatStatus.HOLD;
+            boolean isMyHold = false;
+            if (status == SeatStatus.AVAILABLE) {
+                String holdingUserId = redisTemplate.opsForValue().get("seat:" + seat.getId());
+                if (holdingUserId != null) {
+                    status = SeatStatus.HOLD;
+                    if (userId != null && userId.equals(holdingUserId)) {
+                        isMyHold = true;
+                    }
+                }
             }
             return new SeatResponseDto(
                     seat.getId(),
                     showId,
                     seat.getSeatNumber(),
                     seat.getPrice(),
-                    status
+                    status,
+                    isMyHold
             );
         }).collect(Collectors.toList());
     }
@@ -63,7 +71,8 @@ public class SeatService {
         }
  
         String luaScript =
-            "if redis.call('exists', KEYS[1]) == 0 then " +
+            "local holder = redis.call('get', KEYS[1]) " +
+            "if not holder or holder == ARGV[1] then " +
             "  redis.call('set', KEYS[1], ARGV[1], 'EX', ARGV[2]) " +
             "  return 1 " +
             "else " +

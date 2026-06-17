@@ -20,6 +20,7 @@ const TEST_PASSWORD = __ENV.TEST_PASSWORD || 'password123';
 
 // 2. 테스트 스케줄링 설정 (Spike Test)
 export const options = {
+    setupTimeout: '10m', // 사전 로그인(1,000명) 순차 처리 대기 시간 연장
     scenarios: {
         advanced_spike: {
             executor: 'ramping-vus',

@@ -23,4 +23,7 @@ public class SeatResponseDto {
 
     @Schema(description = "좌석 상태", example = "AVAILABLE")
     private final SeatStatus status;
+
+    @Schema(description = "내가 선점한 좌석 여부", example = "false")
+    private final Boolean isMyHold;
 }
