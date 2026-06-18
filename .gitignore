@@ -53,3 +53,9 @@ Thumbs.db
 !.github/
 !.github/workflows/
 !.github/workflows/*.yml
+
+### K6 Studio ###
+node_modules/
+tests/k6/node_modules/
+tests/k6/tokens.json
+tests/k6/temp_run_script.js
