@@ -690,6 +690,42 @@
     <div class="main-wrapper" id="main-wrapper">
         <!-- Column 1: Configuration -->
         <div class="column config-column">
+            <!-- Section 0: Pre-generate Tokens (Required First Step) -->
+            <div class="card" style="border-color: var(--warning); box-shadow: 0 0 20px rgba(245, 158, 11, 0.08);">
+                <div class="card-title" style="border-left-color: var(--warning);">⚡ 0. 사전 준비: 토큰 발급 (필수 선행)</div>
+                <div style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 1rem; background: rgba(245,158,11,0.05); border: 1px solid rgba(245,158,11,0.15); border-radius: 8px; padding: 0.75rem; line-height: 1.6;">
+                    <strong style="color: var(--warning);">왜 필요한가요?</strong><br>
+                    실제 티켓팅처럼 유저들은 오픈 전 이미 로그인 상태입니다.<br>
+                    BCrypt 부하를 제거하고 <strong>100% 토큰을 확보</strong>하기 위해 테스트 전 반드시 먼저 실행하세요.
+                </div>
+
+                <!-- 상태 표시 -->
+                <div id="token-status-bar" style="display:flex; align-items:center; gap:0.5rem; font-size:0.8rem; margin-bottom:0.75rem; padding: 0.5rem 0.75rem; background:rgba(0,0,0,0.2); border-radius:6px; border: 1px solid var(--panel-border);">
+                    <span id="token-status-dot" style="width:8px;height:8px;border-radius:50%;background:var(--text-muted);flex-shrink:0;"></span>
+                    <span id="token-status-text" style="color:var(--text-muted);">tokens.json 상태 확인 중...</span>
+                </div>
+
+                <!-- 발급 및 초기화 버튼 배치 -->
+                <div style="display: flex; gap: 0.5rem; margin-bottom: 0.75rem;">
+                    <button id="token-gen-btn" onclick="startTokenGen()"
+                        style="flex: 2; padding:0.75rem; background: linear-gradient(to right, var(--warning), #f97316); border:none; border-radius:8px; color:white; font-weight:700; font-size:0.9rem; cursor:pointer; transition:opacity 0.2s;">
+                        🚀 토큰 발급 시작
+                    </button>
+                    <button id="db-reset-btn" onclick="resetDatabase()"
+                        style="flex: 1; padding:0.75rem; background: #1f2937; border: 1px solid var(--panel-border); border-radius:8px; color:var(--text-muted); font-weight:600; font-size:0.8rem; cursor:pointer; transition:background 0.2s, color 0.2s;"
+                        onmouseover="this.style.background='#374151'; this.style.color='white';"
+                        onmouseout="this.style.background='#1f2937'; this.style.color='var(--text-muted)';">
+                        🧹 DB 초기화
+                    </button>
+                </div>
+
+                <!-- 실시간 터미널 출력 (숨김 → 발급 시작 시 표시) -->
+                <div id="token-terminal-wrap" style="display:none;">
+                    <div style="font-size:0.75rem; color:var(--text-muted); margin-bottom:0.3rem;">실시간 출력:</div>
+                    <pre id="token-terminal" style="background:#05070c; color:#10b981; border:1px solid var(--panel-border); border-radius:6px; padding:0.75rem; font-family:'Fira Code',monospace; font-size:0.75rem; max-height:160px; overflow-y:auto; white-space:pre-wrap; word-break:break-all;"></pre>
+                </div>
+            </div>
+
             <!-- Section 1: Presets -->
             <div class="card">
                 <div class="card-title">1. 테스트 시나리오 프리셋 선택</div>
@@ -720,6 +756,10 @@
                 <div class="form-group">
                     <label>테스트 대상 서버 주소 (API Base URL)</label>
                     <input type="text" id="param-url" value="http://k8s-ticketin-ticketse-acf7379724-1452042433.ap-northeast-2.elb.amazonaws.com/api/v1" oninput="updateParams()">
+                    <div style="display: flex; gap: 0.5rem; margin-top: 0.5rem;">
+                        <button class="copy-btn" onclick="setUrl('eks')" style="font-size: 0.75rem; background-color: var(--panel-border); padding: 0.2rem 0.5rem; flex: 1;">☁️ EKS Dev</button>
+                        <button class="copy-btn" onclick="setUrl('local')" style="font-size: 0.75rem; background-color: var(--panel-border); padding: 0.2rem 0.5rem; flex: 1;">💻 로컬 Docker</button>
+                    </div>
                 </div>
 
                 <div class="form-group">
@@ -739,11 +779,14 @@
                 </div>
                 
                 <div class="flow-container">
-                    <div class="flow-node highlight-sync">
-                        <span class="node-badge badge-sync">동기</span>
-                        <div class="node-info">
-                            <div class="node-title">1. 로그인 (/auth/login)</div>
-                            <div class="node-desc">임의 유저 정보로 접근 권한 획득 (JWT 발급)</div>
+                    <div style="background: rgba(245,158,11,0.05); border: 1px dashed rgba(245,158,11,0.35); border-radius: 8px; padding: 0.6rem 0.85rem;">
+                        <div style="font-size: 0.68rem; color: var(--warning); font-weight: 700; letter-spacing: 0.06em; margin-bottom: 0.4rem;">⚡ 사전 처리 (테스트 실행 전 1회)</div>
+                        <div style="display: flex; align-items: center; gap: 0.75rem;">
+                            <span style="font-size: 0.65rem; background: rgba(245,158,11,0.15); color: var(--warning); border: 1px solid rgba(245,158,11,0.3); padding: 0.2rem 0.45rem; border-radius: 4px; font-weight: 700; white-space: nowrap;">STEP 0</span>
+                            <div>
+                                <div style="font-size: 0.85rem; font-weight: 600;">로그인 &amp; JWT 토큰 발급</div>
+                                <div style="font-size: 0.75rem; color: var(--text-muted);">generate_tokens.js 실행 → tokens.json 저장</div>
+                            </div>
                         </div>
                     </div>
                     <div class="flow-arrow">▼</div>
@@ -820,6 +863,11 @@
                 <div style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1rem;">
                     생성된 코드를 컴퓨터에 파일로 저장한 뒤, 터미널(PowerShell 또는 bash)을 열고 아래 명령어들을 실행하면 부하 테스트가 작동합니다.
                 </div>
+
+                <div class="cli-title" style="color: var(--warning);">Step 0. 사전 토큰 발급 (최초 1회 또는 유저 추가 시)</div>
+                <div style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.4rem;">테스트 전 반드시 실행하여 <code style="font-family:'Fira Code',monospace;">tokens.json</code>을 생성합니다. <code style="font-family:'Fira Code',monospace;">--count</code>는 최대 VU 수 이상으로 설정하세요.</div>
+                <div class="cli-cmd">node generate_tokens.js --url http://&lt;API_BASE_URL&gt;/api/v1 --count 1000</div>
+                <div style="font-size: 0.78rem; color: var(--text-muted); margin-bottom: 1rem; margin-top: 0.3rem;">💡 서버 과부하 방지: --batch 30 --delay 500 옵션으로 속도 조절 가능</div>
 
                 <div class="cli-title">Step 1. k6 부하 테스트 도구 설치하기</div>
                 <div style="font-size: 0.8rem; color: var(--text-muted);">Windows 환경 (Chocolatey 사용 시):</div>
@@ -909,6 +957,16 @@
             updateParams();
         }
 
+        function setUrl(env) {
+            const paramUrl = document.getElementById('param-url');
+            if (env === 'eks') {
+                paramUrl.value = 'http://k8s-ticketin-ticketse-acf7379724-1452042433.ap-northeast-2.elb.amazonaws.com/api/v1';
+            } else if (env === 'local') {
+                paramUrl.value = 'http://localhost:8080/api/v1';
+            }
+            updateParams();
+        }
+
         function updateParams() {
             generateScript();
         }
@@ -942,8 +1000,13 @@ import { check, sleep } from 'k6';
 import { SharedArray } from 'k6/data';
 import exec from 'k6/execution';
 
-const users = new SharedArray('users', function () {
-    return JSON.parse(open('./users.json'));
+const tokens = new SharedArray('tokens', function () {
+    try {
+        return JSON.parse(open('./tokens.json'));
+    } catch (e) {
+        console.error('tokens.json 파일을 읽을 수 없습니다. 사전 토큰 발급을 먼저 완료해주세요.');
+        return [];
+    }
 });
 
 export const options = {
@@ -964,27 +1027,17 @@ ${stagesConfig}
 };
 
 const BASE_URL = '${baseUrl}';
-const TEST_PASSWORD = 'password';
 
 export function setup() {
-    console.log('--- [Setup] 사전 로그인 시작 ---');
-    const tokens = [];
-    const totalTestUsers = Math.min(users.length, ${vus});
-    
-    for (let i = 0; i < totalTestUsers; i++) {
-        const user = users[i];
-        const payload = JSON.stringify({ email: user.username, password: user.password || TEST_PASSWORD });
-        const loginRes = http.post(\`\${BASE_URL}/auth/login\`, payload, { headers: { 'Content-Type': 'application/json' } });
-        if (loginRes.status === 200) {
-            tokens.push(loginRes.json().accessToken);
-        }
-    }
-    return { tokens: tokens };
+    console.log(\`--- [Setup] 사전 발급된 토큰 로드 완료 (총 \${tokens.length}개) ---\`);
+    return { tokenCount: tokens.length };
 }
 
 export default function (data) {
-    const tokens = data.tokens;
-    if (!tokens || tokens.length === 0) return;
+    if (!tokens || tokens.length === 0) {
+        console.error('사용 가능한 인증 토큰이 존재하지 않습니다. Step 0을 실행해 주세요.');
+        return;
+    }
 
     const myTokenIndex = (exec.vu.idInInstance - 1) % tokens.length;
     const token = tokens[myTokenIndex];
@@ -1026,6 +1079,115 @@ ${seatIdDeclaration}
 }`;
             document.getElementById('code-block').innerText = code;
         }
+
+        function copyTokenCmd(el) {
+            const cmd = el.innerText.replace('📋 클릭 복사', '').trim();
+            navigator.clipboard.writeText(cmd).then(() => {
+                const span = el.querySelector('span');
+                if (span) { span.innerText = '✅ 복사됨!'; setTimeout(() => { span.innerText = '📋 클릭 복사'; }, 2000); }
+            });
+        }
+
+        // ── 토큰 상태 확인 ────────────────────────────────────
+        async function checkTokenStatus() {
+            try {
+                const res = await fetch('/api/tokens-status');
+                const data = await res.json();
+                const dot  = document.getElementById('token-status-dot');
+                const txt  = document.getElementById('token-status-text');
+                if (data.exists && data.count > 0) {
+                    dot.style.background = '#10b981';
+                    txt.style.color = '#10b981';
+                    txt.innerText = `✅ tokens.json 준비됨 — ${data.count.toLocaleString()}개 토큰`;
+                } else {
+                    dot.style.background = 'var(--warning)';
+                    txt.style.color = 'var(--warning)';
+                    txt.innerText = '⚠️ tokens.json 없음 — 발급 버튼을 눌러 생성하세요';
+                }
+            } catch {
+                const txt = document.getElementById('token-status-text');
+                txt.innerText = '🔌 서버 연결 필요 — node server.js 실행 후 새로고침';
+            }
+        }
+
+        // ── 토큰 발급 시작 ────────────────────────────────────
+        async function startTokenGen() {
+            const url   = document.getElementById('param-url').value.trim();
+            const count = parseInt(document.getElementById('param-vus').value) || 1000;
+            const btn   = document.getElementById('token-gen-btn');
+            const wrap  = document.getElementById('token-terminal-wrap');
+            const term  = document.getElementById('token-terminal');
+
+            btn.disabled = true;
+            btn.style.opacity = '0.6';
+            btn.innerText = '⏳ 발급 중...';
+            wrap.style.display = 'block';
+            term.innerText = '';
+
+            try {
+                const res = await fetch('/api/generate-tokens', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ url, count })
+                });
+
+                const reader = res.body.getReader();
+                const decoder = new TextDecoder();
+                while (true) {
+                    const { value, done } = await reader.read();
+                    if (done) break;
+                    term.innerText += decoder.decode(value);
+                    term.scrollTop = term.scrollHeight;
+                }
+            } catch (err) {
+                term.innerText += `\n[ERROR] 서버에 연결할 수 없습니다. node server.js가 실행 중인지 확인하세요.\n`;
+            } finally {
+                btn.disabled = false;
+                btn.style.opacity = '1';
+                btn.innerText = '🚀 토큰 발급 시작';
+                checkTokenStatus();
+            }
+        }
+
+        // ── DB 초기화 ──────────────────────────────────────────
+        async function resetDatabase() {
+            if (!confirm('정말로 DB의 모든 예매 내역을 삭제하고 좌석을 AVAILABLE 상태로 초기화하시겠습니까?\n(로컬/개발 전용)')) {
+                return;
+            }
+
+            const url  = document.getElementById('param-url').value.trim();
+            const btn  = document.getElementById('db-reset-btn');
+            const wrap = document.getElementById('token-terminal-wrap');
+            const term = document.getElementById('token-terminal');
+
+            btn.disabled = true;
+            btn.style.opacity = '0.6';
+            btn.innerText = '⏳ 초기화 중...';
+            wrap.style.display = 'block';
+            term.innerText = '[SYSTEM] DB 초기화 프로세스 시작...\n';
+
+            try {
+                const res = await fetch('/api/reset-database', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ url })
+                });
+                const data = await res.text();
+                term.innerText += data;
+                term.scrollTop = term.scrollHeight;
+            } catch (err) {
+                term.innerText += `\n[ERROR] 서버 연결 실패: ${err.message}\n`;
+            } finally {
+                btn.disabled = false;
+                btn.style.opacity = '1';
+                btn.innerText = '🧹 DB 초기화';
+            }
+        }
+
+        // 페이지 로드 시 토큰 상태 확인
+        window.addEventListener('load', () => {
+            checkTokenStatus();
+        });
 
         function copyCode() {
             const codeText = document.getElementById('code-block').innerText;
