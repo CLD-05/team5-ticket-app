@@ -14,7 +14,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.Duration;
+import java.util.stream.IntStream;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -31,27 +31,40 @@ public class SeatService {
 
     @Transactional(readOnly = true)
     public List<SeatResponseDto> getSeats(Long showId, String userId) {
-        return seatRepository.findByShowId(showId).stream().map(seat -> {
-            SeatStatus status = seat.getStatus();
-            boolean isMyHold = false;
-            if (status == SeatStatus.AVAILABLE) {
-                String holdingUserId = redisTemplate.opsForValue().get("seat:" + seat.getId());
-                if (holdingUserId != null) {
-                    status = SeatStatus.HOLD;
-                    if (userId != null && userId.equals(holdingUserId)) {
-                        isMyHold = true;
+        List<Seat> seats = seatRepository.findByShowId(showId);
+
+        List<String> keys = seats.stream()
+                .map(seat -> "seat:" + seat.getId())
+                .collect(Collectors.toList());
+
+        List<String> holdValues = redisTemplate.opsForValue().multiGet(keys);
+
+        return IntStream.range(0, seats.size())
+                .mapToObj(i -> {
+                    Seat seat = seats.get(i);
+                    SeatStatus status = seat.getStatus();
+                    boolean isMyHold = false;
+
+                    if (status == SeatStatus.AVAILABLE) {
+                        String holdingUserId = holdValues.get(i);
+                        if (holdingUserId != null) {
+                            status = SeatStatus.HOLD;
+                            if (userId != null && userId.equals(holdingUserId)) {
+                                isMyHold = true;
+                            }
+                        }
                     }
-                }
-            }
-            return new SeatResponseDto(
-                    seat.getId(),
-                    showId,
-                    seat.getSeatNumber(),
-                    seat.getPrice(),
-                    status,
-                    isMyHold
-            );
-        }).collect(Collectors.toList());
+
+                    return new SeatResponseDto(
+                            seat.getId(),
+                            showId,
+                            seat.getSeatNumber(),
+                            seat.getPrice(),
+                            status,
+                            isMyHold
+                    );
+                })
+                .collect(Collectors.toList());
     }
 
     public SeatHoldResponse holdSeat(Long seatId, String userId) {
