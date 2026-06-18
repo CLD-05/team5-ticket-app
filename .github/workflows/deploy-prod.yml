@@ -1,25 +1,23 @@
-name: CI/CD - Deploy Dev
+name: CI/CD - Deploy Prod
 
 on:
-  # PR에서는 빌드/테스트까지만 확인합니다.
-  pull_request:
-    branches:
-      - develop
-
-  # develop에 merge/push되면 CI 성공 후 ECR push와 config repo tag 업데이트를 진행합니다.
-  push:
-    branches:
-      - develop
-
-  # 필요할 때 GitHub Actions 화면에서 수동 실행할 수 있습니다.
+  # 현재 prod 배포는 Actions 화면에서 수동 실행
   workflow_dispatch:
+  # develop merge 기준 자동 배포가 필요할 경우 아래 주석 해제
+  # push:
+  #   branches:
+  #     - develop
+  # 프로젝트 최종 규칙에 맞출 때는 develop을 main으로 치환
 
 env:
   AWS_REGION: ap-northeast-2
-  ECR_REPOSITORY: team5-dev-app
+  ECR_REPOSITORY: team5-prod-app
   CONFIG_REPOSITORY: CLD-05/team5-ticket-config
+  # 현재 팀 작업 흐름은 develop 기준
+  # 프로젝트 최종 규칙에 맞출 때는 main으로 치환
   CONFIG_BRANCH: develop
-  CONFIG_KUSTOMIZATION_PATH: apps/ticket-app/overlays/dev/kustomization.yaml
+  # prod GitOps 매니페스트 image tag 갱신 대상
+  CONFIG_KUSTOMIZATION_PATH: apps/ticket-app/overlays/prod/kustomization.yaml
 
 jobs:
   ci:
@@ -30,6 +28,7 @@ jobs:
       - name: Checkout app repository
         uses: actions/checkout@v4
 
+      # PR/배포 전 공통 검증: Java 17 기준 테스트 및 패키징
       - name: Set up Java 17
         uses: actions/setup-java@v4
         with:
@@ -37,57 +36,57 @@ jobs:
           java-version: "17"
           cache: maven
 
-      # PR 단계에서 Dockerfile lint 검증
+      # Dockerfile 문법/권장 규칙 확인
       - name: Lint Dockerfile
         uses: hadolint/hadolint-action@v3.1.0
         with:
           dockerfile: Dockerfile
 
-      # 1. app repo에서 build/test
       - name: Run tests
         run: mvn -B test
 
       - name: Build jar
         run: mvn -B package -DskipTests
 
-  deploy-dev:
-    name: Build Image, Push ECR, Update Config
+  deploy-prod:
+    name: Build Image, Push Prod ECR, Update Config
     runs-on: ubuntu-latest
     needs: ci
-
-    # PR에서는 배포하지 않고, develop push 또는 수동 실행에서만 CD를 수행합니다.
-    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+    # GitHub Environment prod 승인 게이트
+    environment: prod
 
     permissions:
       contents: read
+      # AWS Access Key 대신 OIDC Role assume
       id-token: write
 
     steps:
       - name: Checkout app repository
         uses: actions/checkout@v4
 
+      # prod ECR immutable 정책 대응
+      # commit SHA 기반 고유 태그로 배포 이력 추적 및 롤백 기준 확보
       - name: Set image tag
         id: vars
         run: |
           SHORT_SHA="${GITHUB_SHA::7}"
-          IMAGE_TAG="dev-${SHORT_SHA}"
+          IMAGE_TAG="prod-${SHORT_SHA}"
           echo "image_tag=${IMAGE_TAG}" >> "$GITHUB_OUTPUT"
 
-      # 3. AWS OIDC로 인증
-      # GitHub repository secret에 AWS_ROLE_TO_ASSUME를 등록해야 합니다.
-      # 예: arn:aws:iam::194722398200:role/team5-github-actions-deploy
+      # GitHub Environment prod에 AWS_PROD_ROLE_TO_ASSUME secret 등록 필요
+      # 예: arn:aws:iam::000000000000:role/team5-gha-prod-role
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
+          role-to-assume: ${{ secrets.AWS_PROD_ROLE_TO_ASSUME }}
           aws-region: ${{ env.AWS_REGION }}
 
-      # 4. ECR login
       - name: Login to Amazon ECR
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v2
 
-      # 2. Docker image build
+      # prod는 latest 태그 미사용
+      # ECR immutable 정책과 배포 재현성을 위해 prod-${SHA} 태그만 사용
       - name: Build Docker image
         env:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
@@ -95,21 +94,15 @@ jobs:
         run: |
           docker build \
             -t "${ECR_REGISTRY}/${ECR_REPOSITORY}:${IMAGE_TAG}" \
-            -t "${ECR_REGISTRY}/${ECR_REPOSITORY}:dev-latest" \
             .
 
-      # 5. ECR push
       - name: Push Docker image to ECR
         env:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
           IMAGE_TAG: ${{ steps.vars.outputs.image_tag }}
         run: |
           docker push "${ECR_REGISTRY}/${ECR_REPOSITORY}:${IMAGE_TAG}"
-          docker push "${ECR_REGISTRY}/${ECR_REPOSITORY}:dev-latest"
 
-      # 6. config repo checkout
-      # 다른 repository에 commit/push해야 하므로 CONFIG_REPO_TOKEN이 필요합니다.
-      # classic PAT 또는 fine-grained token에 team5-ticket-config contents write 권한을 부여합니다.
       - name: Checkout config repository
         uses: actions/checkout@v4
         with:
@@ -118,7 +111,8 @@ jobs:
           token: ${{ secrets.CONFIG_REPO_TOKEN }}
           path: config-repo
 
-      # 7. kustomization.yaml의 image tag 수정
+      # Kubernetes 직접 배포 없음
+      # config repo image tag만 변경하고 실제 배포는 ArgoCD가 GitOps 방식으로 수행
       - name: Update image tag in config repository
         env:
           IMAGE_TAG: ${{ steps.vars.outputs.image_tag }}
@@ -126,6 +120,14 @@ jobs:
         run: |
           cd config-repo
 
+          # prod 매니페스트 미생성 시 명확한 실패 처리
+          if [ ! -f "${CONFIG_KUSTOMIZATION_PATH}" ]; then
+            echo "Config file not found: ${CONFIG_KUSTOMIZATION_PATH}"
+            echo "Create the prod ticket-service manifests before running prod deployment."
+            exit 1
+          fi
+
+          # kustomization.yaml의 ticket-service image newName/newTag만 갱신
           python - <<'PY'
           import os
           from pathlib import Path
@@ -134,10 +136,11 @@ jobs:
           image_name = f"{os.environ['ECR_REGISTRY']}/{os.environ['ECR_REPOSITORY']}"
           image_tag = os.environ["IMAGE_TAG"]
 
-          text = path.read_text()
-          lines = text.splitlines()
+          lines = path.read_text().splitlines()
           output = []
           in_ticket_image = False
+          updated_name = False
+          updated_tag = False
 
           for line in lines:
               stripped = line.strip()
@@ -149,22 +152,28 @@ jobs:
               if in_ticket_image and stripped.startswith("newName:"):
                   indent = line[: len(line) - len(line.lstrip())]
                   output.append(f"{indent}newName: {image_name}")
+                  updated_name = True
                   continue
 
               if in_ticket_image and stripped.startswith("newTag:"):
                   indent = line[: len(line) - len(line.lstrip())]
                   output.append(f"{indent}newTag: {image_tag}")
                   in_ticket_image = False
+                  updated_tag = True
                   continue
 
               output.append(line)
+
+          if not updated_name or not updated_tag:
+              raise SystemExit("ticket-service image entry was not found in kustomization.yaml")
 
           path.write_text("\n".join(output) + "\n")
           PY
 
           git diff -- "${CONFIG_KUSTOMIZATION_PATH}"
 
-      # 8. config repo에 commit & push
+      # config repo 변경 발생 시에만 commit/push
+      # 이후 ArgoCD가 config repo 변경을 감지해 prod 클러스터에 반영
       - name: Commit and push config update
         env:
           IMAGE_TAG: ${{ steps.vars.outputs.image_tag }}
@@ -179,25 +188,5 @@ jobs:
           fi
 
           git add "${CONFIG_KUSTOMIZATION_PATH}"
-          git commit -m "chore: update dev ticket-service image tag to ${IMAGE_TAG}"
+          git commit -m "chore: update prod ticket-service image tag to ${IMAGE_TAG}"
           git push origin "${CONFIG_BRANCH}"
-
-      # ---------------------------------------------------------------------
-      # 아래 단계들은 현재 클러스터 애드온 준비 상태에 따라 바로 사용할 수 없어 주석으로 남깁니다.
-      # External Secrets ClusterSecretStore, AWS Load Balancer Controller,
-      # KEDA scale target이 정리된 뒤 활성화하는 것이 안전합니다.
-      # ---------------------------------------------------------------------
-
-      # - name: Update kubeconfig
-      #   run: |
-      #     aws eks update-kubeconfig \
-      #       --region "${AWS_REGION}" \
-      #       --name team5-dev-eks
-
-      # - name: Wait for ArgoCD rollout
-      #   run: |
-      #     kubectl -n ticketing rollout status deploy/ticket-service --timeout=180s
-
-      # - name: Check ticket-service pods
-      #   run: |
-      #     kubectl -n ticketing get pods -l app.kubernetes.io/name=ticket-service

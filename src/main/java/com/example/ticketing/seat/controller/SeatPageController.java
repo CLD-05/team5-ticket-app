@@ -16,7 +16,12 @@ import org.springframework.web.bind.annotation.PathVariable;
 public class SeatPageController {
 
     private final QueueService queueService;
-
+    
+    @GetMapping("/seat")
+    public String seatMainPage() {
+        return "seat"; 
+    }
+    
     @GetMapping("/seat/index.html")
     public String seatPage() {
         return "redirect:/shows";

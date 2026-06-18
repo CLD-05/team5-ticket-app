@@ -3,7 +3,10 @@ package com.example.ticketing.queue.service;
 import com.example.ticketing.global.exception.BusinessException;
 import com.example.ticketing.global.exception.NotFoundException;
 import com.example.ticketing.global.exception.ErrorCode;
+import io.swagger.v3.oas.annotations.media.Schema;
+import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -16,6 +19,7 @@ import java.util.HashSet;
 import java.util.Set;
 import java.util.UUID;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class QueueService {
@@ -31,6 +35,19 @@ public class QueueService {
 
     @Value("${queue.promotion-batch-size:100}")
     private int promotionBatchSize;
+
+    // ⚠️ 부하테스트(A 방식) 전용: 큐토큰 검증 우회 스위치.
+    //    기본 false. dev/loadtest 프로파일에서만 QUEUE_TOKEN_BYPASS=true 로 켤 것.
+    //    운영 프로파일에선 절대 true 금지 (대기열 자체가 무력화됨).
+    @Value("${queue.token.bypass:false}")
+    private boolean queueTokenBypass;
+
+    @PostConstruct
+    void warnIfBypassEnabled() {
+        if (queueTokenBypass) {
+            log.warn("==== QUEUE TOKEN BYPASS 활성화됨 (부하테스트 모드). 운영 환경이면 즉시 끌 것! ====");
+        }
+    }
 
     public String joinQueue(Long showId, String userId) {
         double score = Instant.now().toEpochMilli();
@@ -92,7 +109,31 @@ public class QueueService {
         redisTemplate.delete(userTokenKey(showId, userId));
     }
 
+    public void completeAdmission(Long showId, String userId, String queueToken) {
+        if (queueTokenBypass || !StringUtils.hasText(queueToken)) {
+            return;
+        }
+
+        String userTokenKey = userTokenKey(showId, userId);
+        String currentToken = redisTemplate.opsForValue().get(userTokenKey);
+        if (!queueToken.equals(currentToken)) {
+            log.warn("예매 확정 후 Queue Token 정리 건너뜀 - 현재 토큰과 메시지 토큰 불일치. showId={}, userId={}", showId, userId);
+            return;
+        }
+
+        // 예매 확정(CONFIRMED) 이후에는 같은 입장 권한으로 추가 예매를 시도할 수 없도록 ACTIVE와 토큰 매핑을 정리
+        redisTemplate.opsForZSet().remove(activeQueueKey(showId), userId);
+        redisTemplate.delete(tokenKey(queueToken));
+        redisTemplate.delete(userTokenKey);
+    }
+
     public void validateQueueToken(String token, Long showId, String userId) {
+        // ⚠️ 부하테스트(A) 모드: 큐토큰 검증을 통째로 건너뜀.
+        //    인터셉터/서비스 양쪽이 이 메서드를 타므로 여기 한 곳이면 둘 다 우회됨.
+        if (queueTokenBypass) {
+            return;
+        }
+
         if (!StringUtils.hasText(token)) {
             throw new BusinessException(ErrorCode.QUEUE_TOKEN_REQUIRED);
         }
@@ -228,5 +269,15 @@ public class QueueService {
         return showId + ":" + userId;
     }
 
-    public record QueueStatusResponse(String status, Long position, boolean canEnter, String queueToken) {}
+    @Schema(description = "대기열 상태 응답")
+    public record QueueStatusResponse(
+            @Schema(description = "대기열 상태", example = "WAITING", allowableValues = {"WAITING", "ACTIVE"})
+            String status,
+            @Schema(description = "대기 순번. ACTIVE 상태에서는 null입니다.", example = "37")
+            Long position,
+            @Schema(description = "예매 화면 입장 가능 여부", example = "false")
+            boolean canEnter,
+            @Schema(description = "예매 요청에 사용할 Queue Token. WAITING 상태에서는 null입니다.", example = "550e8400-e29b-41d4-a716-446655440000")
+            String queueToken
+    ) {}
 }
