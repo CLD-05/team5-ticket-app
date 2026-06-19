@@ -413,6 +413,7 @@
                 <input type="password" id="modalTokenInput" class="form-control" placeholder="접속 키 또는 OTP 6자리 입력" value="admin-secret-key">
             </div>
             <button class="btn" onclick="authorizeToken()">인증 및 잠금해제</button>
+            <p id="authErrorMsg" style="color: var(--error); font-size: 0.8rem; margin-top: 10px; display: none;"></p>
             <div style="margin-top: 25px; padding-top: 20px; border-top: 1px solid rgba(255,255,255,0.08); font-size: 0.8rem; color: var(--text-muted);">
                 <p style="margin-bottom: 10px;">📱 <strong>구글 OTP (TOTP) 등록</strong></p>
                 <img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=otpauth://totp/TicketWave:admin%3Fsecret%3DTICKETWAVEADMINX%26issuer%3DTicketWave" style="margin: 5px auto; display: block; border-radius: 8px; border: 4px solid white; box-shadow: 0 4px 15px rgba(0,0,0,0.5);" alt="Google OTP QR Code">
@@ -506,7 +507,12 @@
                         </div>
                         <div style="flex:1.5;">
                             <label style="font-size:0.75rem; color:var(--text-muted);">접두사</label>
-                            <input type="text" id="vipPrefix" class="form-control" value="V-A" style="padding:6px 10px;">
+                            <select id="vipPrefix" class="form-control" style="padding:6px 10px;">
+                                <option value="V-A">V-A</option>
+                                <option value="V-B">V-B</option>
+                                <option value="V-C">V-C</option>
+                                <option value="V-D">V-D</option>
+                            </select>
                         </div>
                     </div>
 
@@ -523,7 +529,12 @@
                         </div>
                         <div style="flex:1.5;">
                             <label style="font-size:0.75rem; color:var(--text-muted);">접두사</label>
-                            <input type="text" id="rPrefix" class="form-control" value="R-A" style="padding:6px 10px;">
+                            <select id="rPrefix" class="form-control" style="padding:6px 10px;">
+                                <option value="R-A">R-A</option>
+                                <option value="R-B">R-B</option>
+                                <option value="R-C">R-C</option>
+                                <option value="R-D">R-D</option>
+                            </select>
                         </div>
                     </div>
 
@@ -540,7 +551,12 @@
                         </div>
                         <div style="flex:1.5;">
                             <label style="font-size:0.75rem; color:var(--text-muted);">접두사</label>
-                            <input type="text" id="sPrefix" class="form-control" value="S-A" style="padding:6px 10px;">
+                            <select id="sPrefix" class="form-control" style="padding:6px 10px;">
+                                <option value="S-A">S-A</option>
+                                <option value="S-B">S-B</option>
+                                <option value="S-C">S-C</option>
+                                <option value="S-D">S-D</option>
+                            </select>
                         </div>
                     </div>
 
@@ -550,6 +566,39 @@
                 </div>
                 
                 <div id="seatConsole" class="console-log" style="display:none;"></div>
+            </div>
+
+            <!-- Card 4: 실시간 좌석 미리보기 (CSS Grid) -->
+            <div class="card">
+                <div>
+                    <div class="card-header">
+                        <h2><span></span>실시간 좌석 미리보기</h2>
+                        <p>입력된 설정에 따라 생성될 좌석 배치를 실시간으로 미리 확인합니다. (최대 등급별 60석 제한)</p>
+                    </div>
+
+                    <!-- 범례 (Legend) -->
+                    <div style="display: flex; gap: 15px; margin-bottom: 15px; font-size: 0.8rem;">
+                        <div style="display: flex; align-items: center; gap: 6px;">
+                            <span style="display: inline-block; width: 12px; height: 12px; border-radius: 4px; background: var(--primary);"></span> VIP석
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 6px;">
+                            <span style="display: inline-block; width: 12px; height: 12px; border-radius: 4px; background: var(--accent);"></span> R석
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 6px;">
+                            <span style="display: inline-block; width: 12px; height: 12px; border-radius: 4px; background: var(--success);"></span> S석
+                        </div>
+                    </div>
+
+                    <!-- 경고 메시지 영역 -->
+                    <div id="previewWarning" class="info-box" style="display: none; background: rgba(245, 158, 11, 0.08); border-color: rgba(245, 158, 11, 0.2); color: #fcd34d; font-size: 0.75rem; margin-bottom: 12px;">
+                        ⚠️ 일부 등급의 좌석 수량이 60석을 초과하여 시각화가 제한되었습니다. 실제 생성 시에는 지정한 수량만큼 생성됩니다.
+                    </div>
+
+                    <!-- CSS Grid Seat Container -->
+                    <div id="seatGridContainer" style="display: grid; grid-template-columns: repeat(10, 1fr); gap: 6px; background: rgba(0,0,0,0.3); padding: 15px; border-radius: 12px; min-height: 100px; max-height: 250px; overflow-y: auto; border: 1px solid rgba(255,255,255,0.05);">
+                        <!-- Dots dynamically rendered -->
+                    </div>
+                </div>
             </div>
 
             <!-- Card 3: 대기열 제어 및 리셋 -->
@@ -602,16 +651,53 @@
                 document.getElementById("headerTokenInput").value = token;
                 refreshShowDropdowns();
             }
+
+            // 실시간 좌석 미리보기 바인딩
+            const previewInputs = [
+                "vipCount", "rCount", "sCount",
+                "vipPrefix", "rPrefix", "sPrefix",
+                "vipPrice", "rPrice", "sPrice"
+            ];
+            previewInputs.forEach(id => {
+                const el = document.getElementById(id);
+                if (el) {
+                    el.addEventListener("input", updateSeatPreview);
+                    el.addEventListener("change", updateSeatPreview);
+                }
+            });
+            updateSeatPreview();
         });
 
         function authorizeToken() {
-            const input = document.getElementById("modalTokenInput").value;
-            if (input) {
+            const input = document.getElementById("modalTokenInput").value.trim();
+            const errorMsg = document.getElementById("authErrorMsg");
+            if (!input) {
+                errorMsg.textContent = "접속 키 또는 OTP 코드를 입력해 주세요.";
+                errorMsg.style.display = "block";
+                return;
+            }
+
+            errorMsg.style.display = "none";
+            
+            fetch("/api/v1/admin/validate", {
+                method: "POST",
+                headers: {
+                    "X-Admin-Token": input
+                }
+            })
+            .then(res => {
+                if (!res.ok) {
+                    throw new Error("올바르지 않은 접속 키 또는 OTP 코드입니다.");
+                }
                 sessionStorage.setItem("adminToken", input);
                 document.getElementById("headerTokenInput").value = input;
                 document.getElementById("lockModal").classList.add("hidden");
                 refreshShowDropdowns();
-            }
+            })
+            .catch(err => {
+                errorMsg.textContent = err.message;
+                errorMsg.style.display = "block";
+            });
         }
 
         function updateTokenFromHeader() {
@@ -923,6 +1009,116 @@
             } else {
                 btnElement.disabled = false;
                 span.textContent = btnElement.dataset.originalText || "실행";
+            }
+        }
+
+        function updateSeatPreview() {
+            const vipCount = Math.max(0, parseInt(document.getElementById("vipCount").value) || 0);
+            const rCount = Math.max(0, parseInt(document.getElementById("rCount").value) || 0);
+            const sCount = Math.max(0, parseInt(document.getElementById("sCount").value) || 0);
+
+            const vipPrefix = document.getElementById("vipPrefix").value;
+            const rPrefix = document.getElementById("rPrefix").value;
+            const sPrefix = document.getElementById("sPrefix").value;
+
+            const vipPrice = parseInt(document.getElementById("vipPrice").value) || 0;
+            const rPrice = parseInt(document.getElementById("rPrice").value) || 0;
+            const sPrice = parseInt(document.getElementById("sPrice").value) || 0;
+
+            const container = document.getElementById("seatGridContainer");
+            const warning = document.getElementById("previewWarning");
+            
+            if (!container) return;
+            container.innerHTML = "";
+
+            let hasExceeded = false;
+            
+            // VIP 렌더링
+            const vipLimit = Math.min(vipCount, 60);
+            for (let i = 1; i <= vipLimit; i++) {
+                const dot = document.createElement("span");
+                dot.className = "seat-dot";
+                dot.style.width = "14px";
+                dot.style.height = "14px";
+                dot.style.borderRadius = "4px";
+                dot.style.background = "var(--primary)";
+                dot.style.cursor = "pointer";
+                dot.style.transition = "transform 0.2s ease";
+                dot.title = `[VIP] ${vipPrefix}-${i} (${vipPrice.toLocaleString()}원)`;
+                dot.addEventListener("mouseover", () => dot.style.transform = "scale(1.3)");
+                dot.addEventListener("mouseout", () => dot.style.transform = "scale(1)");
+                container.appendChild(dot);
+            }
+            if (vipCount > 60) {
+                hasExceeded = true;
+                const more = document.createElement("span");
+                more.style.fontSize = "0.7rem";
+                more.style.color = "var(--text-muted)";
+                more.style.display = "flex";
+                more.style.alignItems = "center";
+                more.style.justifyContent = "center";
+                more.textContent = `+${vipCount - 60}`;
+                container.appendChild(more);
+            }
+
+            // R 렌더링
+            const rLimit = Math.min(rCount, 60);
+            for (let i = 1; i <= rLimit; i++) {
+                const dot = document.createElement("span");
+                dot.className = "seat-dot";
+                dot.style.width = "14px";
+                dot.style.height = "14px";
+                dot.style.borderRadius = "4px";
+                dot.style.background = "var(--accent)";
+                dot.style.cursor = "pointer";
+                dot.style.transition = "transform 0.2s ease";
+                dot.title = `[R석] ${rPrefix}-${i} (${rPrice.toLocaleString()}원)`;
+                dot.addEventListener("mouseover", () => dot.style.transform = "scale(1.3)");
+                dot.addEventListener("mouseout", () => dot.style.transform = "scale(1)");
+                container.appendChild(dot);
+            }
+            if (rCount > 60) {
+                hasExceeded = true;
+                const more = document.createElement("span");
+                more.style.fontSize = "0.7rem";
+                more.style.color = "var(--text-muted)";
+                more.style.display = "flex";
+                more.style.alignItems = "center";
+                more.style.justifyContent = "center";
+                more.textContent = `+${rCount - 60}`;
+                container.appendChild(more);
+            }
+
+            // S 렌더링
+            const sLimit = Math.min(sCount, 60);
+            for (let i = 1; i <= sLimit; i++) {
+                const dot = document.createElement("span");
+                dot.className = "seat-dot";
+                dot.style.width = "14px";
+                dot.style.height = "14px";
+                dot.style.borderRadius = "4px";
+                dot.style.background = "var(--success)";
+                dot.style.cursor = "pointer";
+                dot.style.transition = "transform 0.2s ease";
+                dot.title = `[S석] ${sPrefix}-${i} (${sPrice.toLocaleString()}원)`;
+                dot.addEventListener("mouseover", () => dot.style.transform = "scale(1.3)");
+                dot.addEventListener("mouseout", () => dot.style.transform = "scale(1)");
+                container.appendChild(dot);
+            }
+            if (sCount > 60) {
+                hasExceeded = true;
+                const more = document.createElement("span");
+                more.style.fontSize = "0.7rem";
+                more.style.color = "var(--text-muted)";
+                more.style.display = "flex";
+                more.style.alignItems = "center";
+                more.style.justifyContent = "center";
+                more.textContent = `+${sCount - 60}`;
+                container.appendChild(more);
+            }
+
+            if (warning) {
+                warning.style.display = hasExceeded ? "block" : "none";
             }
         }
     </script>

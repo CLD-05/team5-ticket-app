@@ -851,7 +851,10 @@
             <div class="card" id="terminal-card" style="margin-bottom: 1.5rem; display: none;">
                 <div class="code-header" style="background-color: #0c0f16; border-color: var(--danger);">
                     <span style="color: var(--danger); font-weight: 600; display: flex; align-items: center; gap: 0.5rem;">⬤ 실시간 테스트 콘솔 모니터</span>
-                    <button class="copy-btn" id="kill-btn" onclick="killLiveTest()" style="background-color: var(--danger); display: none;">테스트 강제 중지</button>
+                    <div style="display: flex; gap: 0.5rem;">
+                        <button class="copy-btn" id="export-report-btn" onclick="exportReport()" style="background-color: var(--accent); display: none;">📝 보고서/로그 내보내기</button>
+                        <button class="copy-btn" id="kill-btn" onclick="killLiveTest()" style="background-color: var(--danger); display: none;">테스트 강제 중지</button>
+                    </div>
                 </div>
                 <pre style="background-color: #05070c; color: #10b981; border-color: var(--danger); max-height: 350px; font-family: 'Fira Code', monospace; font-size: 0.8rem; overflow-y: auto;" id="terminal-output"></pre>
             </div>
@@ -1327,10 +1330,12 @@ ${seatIdDeclaration}
             const reportCard = document.getElementById('report-card');
             const runBtn = document.getElementById('run-btn');
             const killBtn = document.getElementById('kill-btn');
+            const exportBtn = document.getElementById('export-report-btn');
             
             termCard.style.display = 'block';
             termOutput.innerText = '[SYSTEM] 테스트 시작 준비 중...\n';
             termOutput.scrollTop = termOutput.scrollHeight;
+            if (exportBtn) exportBtn.style.display = 'block';
             
             if (reportCard) {
                 reportCard.style.display = 'block';
@@ -1537,6 +1542,103 @@ ${seatIdDeclaration}
                 btn.textContent = '✅ 복사됨!';
                 setTimeout(() => { btn.textContent = '📋 명령어 복사'; }, 2500);
             });
+        }
+
+        // Run immediately + every 5 seconds
+        checkConnections();
+        setInterval(checkConnections, 5000);
+
+        function exportReport() {
+            const termOutput = document.getElementById('terminal-output').innerText;
+            if (!termOutput || termOutput.trim() === '') {
+                alert("내보낼 로그가 없습니다.");
+                return;
+            }
+
+            const metrics = parseK6Metrics(termOutput);
+            const vus = metrics.vus || document.getElementById('param-vus').value || 'Unknown';
+            const baseUrl = document.getElementById('param-url').value;
+            const scenario = currentPreset === 'lock' ? '동시성 락 검증 (Spike Test)' : '처리량 & 스케일 검증 (Load Test)';
+            const seatIdMode = seatMode === 'single' ? '단일 좌석 고정 (1번)' : '여러 좌석 분산 (랜덤)';
+            
+            const p95Ms = parseTimeToMs(metrics.p95);
+            const p99Ms = parseTimeToMs(metrics.p99);
+            const errorRate = metrics.errorRate;
+
+            const p95Passed = p95Ms !== null ? (p95Ms < 6000) : true;
+            const p99Passed = p99Ms !== null ? (p99Ms < 10000) : true;
+            const errorPassed = errorRate !== null ? (errorRate < 1.0) : true;
+            const isSuccess = p95Passed && p99Passed && errorPassed;
+
+            const now = new Date();
+            const dateStr = now.toLocaleDateString();
+            const timeStr = now.toLocaleTimeString();
+
+            let md = `# ⚡ K6 Performance Test Report
+
+## 1. 테스트 기본 정보
+- **수행 일시:** ${dateStr} ${timeStr}
+- **테스트 시나리오:** ${scenario}
+- **좌석 배분 방식:** ${seatIdMode}
+- **대상 서버 주소:** ${baseUrl}
+- **최대 가상 유저 (Max VUs):** ${vus} 명
+
+## 2. 핵심 성능 지표 요약
+| 지표 (Metrics) | 측정값 | SLO 기준 | 상태 |
+| :--- | :--- | :--- | :--- |
+| **최대 가상 사용자 (VUs)** | ${vus} VUs | - | - |
+| **초당 트래픽 (RPS)** | ${metrics.rps !== null ? metrics.rps + ' reqs/s' : 'N/A'} | - | - |
+| **평균 응답 시간 (Avg)** | ${metrics.avg || 'N/A'} | - | - |
+| **p(90) 응답 시간** | ${metrics.p90 || 'N/A'} | - | - |
+| **p(95) 응답 시간** | ${metrics.p95 || 'N/A'} | < 6.00s | ${p95Passed ? '✅ 통과' : '❌ 초과'} |
+| **p(99) 응답 시간** | ${metrics.p99 || 'N/A'} | < 10.00s | ${p99Passed ? '✅ 통과' : '❌ 초과'} |
+| **요청 실패율 (Error Rate)** | ${metrics.errorRate !== null ? metrics.errorRate + '%' : 'N/A'} | < 1.00% | ${errorPassed ? '✅ 통과' : '❌ 초과'} |
+
+## 3. 성능 평가 및 종합 의견
+- **최종 진단 결과:** ${isSuccess ? '🏆 **합격 (SLO 통과)**' : '🚨 **불합격 (성능 저하 발생)**'}
+- **진단 의견:**
+`;
+
+            if (isSuccess) {
+                md += `  - 모든 핵심 성능 목표(SLO)를 충족했습니다. 시스템이 동시 접속 부하 하에서도 안정적인 대기열 제어 및 임시 선점 기능을 제공합니다.\n`;
+            } else {
+                if (!p95Passed) {
+                    md += `  - 🚨 **p(95) 지연 초과 (${metrics.p95}):** 데이터베이스 락(Lock) 대기 시간이 과도하거나 대기열 활성화 폴링이 지연되었을 수 있습니다. DB 세션 모니터링 및 인덱스 상태 점검이 필요합니다.\n`;
+                }
+                if (!p99Passed) {
+                    md += `  - 🚨 **p(99) 지연 초과 (${metrics.p99}):** 극단적인 롱테일 지연(Long-tail Latency)이 감지되었습니다. 일부 웹서버 인스턴스 또는 DB 커넥션 풀 고갈을 의심할 수 있습니다.\n`;
+                }
+                if (!errorPassed) {
+                    md += `  - 🚨 **높은 에러율 (${metrics.errorRate}%):** 서버 응답 실패가 기준치(1%)를 초과했습니다. SQS 대기 큐 용량 초과 또는 API 서버 크래시 여부를 확인해야 합니다.\n`;
+                }
+            }
+            
+            md += `
+## 4. 원시 실행 로그 (Raw k6 Output)
+\`\`\`text
+${termOutput}
+\`\`\`
+`;
+
+            // 1. Copy to clipboard
+            navigator.clipboard.writeText(md).then(() => {
+                alert("📋 마크다운 성능 보고서가 클립보드에 복사되었습니다.\n노션이나 AI 프롬프트에 그대로 붙여넣기 하실 수 있습니다.");
+            }).catch(err => {
+                console.error("클립보드 복사 실패: ", err);
+            });
+
+            // 2. Download as File
+            const blob = new Blob([md], { type: 'text/markdown;charset=utf-8;' });
+            const link = document.createElement("a");
+            const filename = `k6_performance_report_${now.getFullYear()}${String(now.getMonth()+1).padStart(2,'0')}${String(now.getDate()).padStart(2,'0')}_${String(now.getHours()).padStart(2,'0')}${String(now.getMinutes()).padStart(2,'0')}${String(now.getSeconds()).padStart(2,'0')}.md`;
+            
+            const url = URL.createObjectURL(blob);
+            link.setAttribute("href", url);
+            link.setAttribute("download", filename);
+            link.style.visibility = 'hidden';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
         }
 
         // Run immediately + every 5 seconds
