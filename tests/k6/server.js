@@ -42,7 +42,9 @@ const server = http.createServer((req, res) => {
                 const args = ['run'];
                 if (usePrometheus) {
                     args.push('--out', 'experimental-prometheus-rw');
-                    res.write(`[SYSTEM] 프로메테우스 연동 활성화 (Remote Write)\n`);
+                    const testRunId = `run-${Date.now()}`;
+                    args.push('--tag', `testid=${testRunId}`);
+                    res.write(`[SYSTEM] 프로메테우스 연동 활성화 (Remote Write, testid=${testRunId})\n`);
                 }
                 args.push(tempScriptPath);
                 
@@ -51,7 +53,9 @@ const server = http.createServer((req, res) => {
                     cwd: __dirname,
                     env: {
                         ...process.env,
-                        TARGET_URL: targetUrl
+                        TARGET_URL: targetUrl,
+                        QUEUE_POLLS: '20',
+                        SEAT_SPREAD: '1000'
                     }
                 });
                 
