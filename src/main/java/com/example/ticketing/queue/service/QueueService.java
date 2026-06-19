@@ -265,6 +265,41 @@ public class QueueService {
         return TOKEN_KEY_PREFIX + token;
     }
 
+    public void clearQueue(Long showId) {
+        log.info("Queue clearing triggered for showId: {}", showId);
+        String waitingKey = waitingQueueKey(showId);
+        String activeKey = activeQueueKey(showId);
+
+        String userTokenPattern = USER_TOKEN_KEY_PREFIX + showId + ":*";
+        Set<String> userTokenKeys = redisTemplate.keys(userTokenPattern);
+        if (userTokenKeys != null && !userTokenKeys.isEmpty()) {
+            Set<String> tokenKeysToDelete = new HashSet<>();
+            for (String userTokKey : userTokenKeys) {
+                String token = redisTemplate.opsForValue().get(userTokKey);
+                if (StringUtils.hasText(token)) {
+                    tokenKeysToDelete.add(tokenKey(token));
+                }
+            }
+            if (!tokenKeysToDelete.isEmpty()) {
+                redisTemplate.delete(tokenKeysToDelete);
+            }
+            redisTemplate.delete(userTokenKeys);
+        }
+
+        redisTemplate.delete(waitingKey);
+        redisTemplate.delete(activeKey);
+        log.info("Queue cleared for showId: {}", showId);
+    }
+
+    public void clearAllQueues() {
+        log.info("Queue clearing triggered for all shows");
+        Set<String> keys = redisTemplate.keys("queue:*");
+        if (keys != null && !keys.isEmpty()) {
+            redisTemplate.delete(keys);
+        }
+        log.info("All queues cleared");
+    }
+
     private String tokenValue(Long showId, String userId) {
         return showId + ":" + userId;
     }
