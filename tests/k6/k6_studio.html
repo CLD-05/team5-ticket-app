@@ -1117,30 +1117,30 @@ ${seatIdDeclaration}
             const btn   = document.getElementById('token-gen-btn');
             const wrap  = document.getElementById('token-terminal-wrap');
             const term  = document.getElementById('token-terminal');
-
+ 
             btn.disabled = true;
             btn.style.opacity = '0.6';
             btn.innerText = '⏳ 발급 중...';
             wrap.style.display = 'block';
-            term.innerText = '';
-
+            term.textContent = '';
+ 
             try {
                 const res = await fetch('/api/generate-tokens', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ url, count })
                 });
-
+ 
                 const reader = res.body.getReader();
                 const decoder = new TextDecoder();
                 while (true) {
                     const { value, done } = await reader.read();
                     if (done) break;
-                    term.innerText += decoder.decode(value);
+                    term.textContent += decoder.decode(value);
                     term.scrollTop = term.scrollHeight;
                 }
             } catch (err) {
-                term.innerText += `\n[ERROR] 서버에 연결할 수 없습니다. node server.js가 실행 중인지 확인하세요.\n`;
+                term.textContent += `\n[ERROR] 서버에 연결할 수 없습니다. node server.js가 실행 중인지 확인하세요.\n`;
             } finally {
                 btn.disabled = false;
                 btn.style.opacity = '1';
@@ -1148,24 +1148,24 @@ ${seatIdDeclaration}
                 checkTokenStatus();
             }
         }
-
+ 
         // ── DB 초기화 ──────────────────────────────────────────
         async function resetDatabase() {
             if (!confirm('정말로 DB의 모든 예매 내역을 삭제하고 좌석을 AVAILABLE 상태로 초기화하시겠습니까?\n(로컬/개발 전용)')) {
                 return;
             }
-
+ 
             const url  = document.getElementById('param-url').value.trim();
             const btn  = document.getElementById('db-reset-btn');
             const wrap = document.getElementById('token-terminal-wrap');
             const term = document.getElementById('token-terminal');
-
+ 
             btn.disabled = true;
             btn.style.opacity = '0.6';
             btn.innerText = '⏳ 초기화 중...';
             wrap.style.display = 'block';
-            term.innerText = '[SYSTEM] DB 초기화 프로세스 시작...\n';
-
+            term.textContent = '[SYSTEM] DB 초기화 프로세스 시작...\n';
+ 
             try {
                 const res = await fetch('/api/reset-database', {
                     method: 'POST',
@@ -1173,10 +1173,10 @@ ${seatIdDeclaration}
                     body: JSON.stringify({ url })
                 });
                 const data = await res.text();
-                term.innerText += data;
+                term.textContent += data;
                 term.scrollTop = term.scrollHeight;
             } catch (err) {
-                term.innerText += `\n[ERROR] 서버 연결 실패: ${err.message}\n`;
+                term.textContent += `\n[ERROR] 서버 연결 실패: ${err.message}\n`;
             } finally {
                 btn.disabled = false;
                 btn.style.opacity = '1';
@@ -1318,7 +1318,7 @@ ${seatIdDeclaration}
 
         let liveTestReader = null;
         let isRunning = false;
-
+ 
         function runLiveTest() {
             if (isRunning) return;
             
@@ -1329,7 +1329,7 @@ ${seatIdDeclaration}
             const killBtn = document.getElementById('kill-btn');
             
             termCard.style.display = 'block';
-            termOutput.innerText = '[SYSTEM] 테스트 시작 준비 중...\n';
+            termOutput.textContent = '[SYSTEM] 테스트 시작 준비 중...\n';
             termOutput.scrollTop = termOutput.scrollHeight;
             
             if (reportCard) {
@@ -1350,6 +1350,8 @@ ${seatIdDeclaration}
             runBtn.disabled = true;
             killBtn.style.display = 'block';
             
+            let lastReportTime = 0;
+            
             fetch('/api/run', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -1367,11 +1369,15 @@ ${seatIdDeclaration}
                             return;
                         }
                         const text = decoder.decode(value);
-                        termOutput.innerText += text;
+                        termOutput.textContent += text;
                         termOutput.scrollTop = termOutput.scrollHeight;
                         
-                        // Parse metrics in real-time as logs stream
-                        displayDiagnosticReport(termOutput.innerText);
+                        // Parse metrics in real-time as logs stream (throttled to 1s)
+                        const now = Date.now();
+                        if (now - lastReportTime > 1000) {
+                            displayDiagnosticReport(termOutput.textContent);
+                            lastReportTime = now;
+                        }
                         
                         return read();
                     });
@@ -1379,7 +1385,7 @@ ${seatIdDeclaration}
                 return read();
             })
             .catch(err => {
-                termOutput.innerText += `\n[SYSTEM ERROR] 서버 연결 실패: ${err.message}\n`;
+                termOutput.textContent += `\n[SYSTEM ERROR] 서버 연결 실패: ${err.message}\n`;
                 termOutput.scrollTop = termOutput.scrollHeight;
                 cleanup();
             });
@@ -1392,7 +1398,7 @@ ${seatIdDeclaration}
                 liveTestReader = null;
                 
                 // Final diagnostic run
-                displayDiagnosticReport(termOutput.innerText);
+                displayDiagnosticReport(termOutput.textContent);
             }
         }
 

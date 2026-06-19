@@ -114,12 +114,14 @@ const server = http.createServer((req, res) => {
                     'Access-Control-Allow-Origin': '*'
                 });
 
-                res.write(`[SYSTEM] 토큰 발급 시작: ${count}명 / 대상: ${targetUrl}\n`);
+                res.write(`[SYSTEM] 토큰 발급 시작: ${count}명 / 대상: ${targetUrl} (안정 모드: batch=10, delay=500ms)\n`);
 
                 const tokenProcess = spawn('node', [
                     path.join(__dirname, 'generate_tokens.js'),
                     '--url',   targetUrl,
                     '--count', String(count),
+                    '--batch', '10',
+                    '--delay', '500',
                     '--output', path.join(__dirname, 'tokens.json')
                 ], { cwd: __dirname });
 
