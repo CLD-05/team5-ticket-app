@@ -265,7 +265,7 @@
         <p>콘서트, 뮤지컬, 연극, 전시까지 한 번에 검색하고 예매하세요.</p>
 
         <div class="search-box">
-          <input type="text" placeholder="공연명, 장소, 아티스트 검색" id="searchInput">
+          <input type="text" placeholder="공연명, 장소, 아티스트 검색" id="searchInput" onkeydown="if(event.key === 'Enter') loadShows()">
           <button onclick="loadShows()">검색</button>
         </div>
       </div>
