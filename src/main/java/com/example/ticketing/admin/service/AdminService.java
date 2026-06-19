@@ -137,4 +137,65 @@ public class AdminService {
             queueService.clearAllQueues();
         }
     }
+
+    @Transactional(readOnly = true)
+    public com.example.ticketing.admin.dto.ShowStatsResponse getShowStats(Long showId) {
+        Show show = showRepository.findById(showId)
+                .orElseThrow(() -> new NotFoundException("공연을 찾을 수 없습니다. ID: " + showId));
+
+        List<SeatGrade> grades = seatGradeRepository.findByShowId(showId);
+
+        String sql = "SELECT price, status, COUNT(*) as cnt FROM seats WHERE show_id = ? GROUP BY price, status";
+        List<java.util.Map<String, Object>> rows = jdbcTemplate.queryForList(sql, showId);
+
+        java.util.Map<Integer, java.util.Map<String, Integer>> statusMapByPrice = new java.util.HashMap<>();
+        for (java.util.Map<String, Object> row : rows) {
+            int price = ((Number) row.get("price")).intValue();
+            String status = (String) row.get("status");
+            int count = ((Number) row.get("cnt")).intValue();
+
+            statusMapByPrice.putIfAbsent(price, new java.util.HashMap<>());
+            statusMapByPrice.get(price).put(status, count);
+        }
+
+        List<com.example.ticketing.admin.dto.ShowStatsResponse.GradeStats> statsList = new java.util.ArrayList<>();
+        long totalRevenue = 0;
+
+        for (SeatGrade grade : grades) {
+            int price = grade.getPrice();
+            java.util.Map<String, Integer> counts = statusMapByPrice.getOrDefault(price, java.util.Collections.emptyMap());
+
+            int available = counts.getOrDefault("AVAILABLE", 0);
+            int hold = counts.getOrDefault("HOLD", 0);
+            int sold = counts.getOrDefault("SOLD", 0);
+            int total = available + hold + sold;
+
+            if (total == 0) {
+                total = grade.getTotalSeats() != null ? grade.getTotalSeats() : 0;
+            }
+
+            double soldRate = total > 0 ? (double) sold * 100.0 / total : 0.0;
+            soldRate = Math.round(soldRate * 100.0) / 100.0;
+
+            totalRevenue += (long) sold * price;
+
+            statsList.add(com.example.ticketing.admin.dto.ShowStatsResponse.GradeStats.builder()
+                    .gradeName(grade.getGradeName())
+                    .price(price)
+                    .total(total)
+                    .available(available)
+                    .hold(hold)
+                    .sold(sold)
+                    .soldRate(soldRate)
+                    .build());
+        }
+
+        return com.example.ticketing.admin.dto.ShowStatsResponse.builder()
+                .showId(show.getShowId())
+                .title(show.getTitle())
+                .venue(show.getVenue())
+                .totalRevenue(totalRevenue)
+                .stats(statsList)
+                .build();
+    }
 }

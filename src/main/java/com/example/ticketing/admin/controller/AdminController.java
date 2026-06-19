@@ -132,4 +132,23 @@ public class AdminController {
         validateAdminToken(token);
         return ResponseEntity.ok().build();
     }
+
+    @Operation(summary = "공연별 실시간 예매 현황 조회", description = "특정 공연의 실시간 등급별 잔여석, 매출, 완판율 통계를 조회합니다. (어드민 토큰 검증 필요)")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "조회 성공",
+                    content = @Content(schema = @Schema(implementation = com.example.ticketing.admin.dto.ShowStatsResponse.class))),
+            @ApiResponse(responseCode = "403", description = "어드민 권한 없음", content = @Content),
+            @ApiResponse(responseCode = "404", description = "공연을 찾을 수 없음", content = @Content)
+    })
+    @GetMapping("/shows/{showId}/stats")
+    public ResponseEntity<com.example.ticketing.admin.dto.ShowStatsResponse> getShowStats(
+            @Parameter(description = "어드민 인증 토큰", example = "admin-secret-key")
+            @RequestHeader(value = "X-Admin-Token", required = false) String token,
+            @Parameter(description = "공연 ID", example = "1")
+            @PathVariable Long showId
+    ) {
+        validateAdminToken(token);
+        com.example.ticketing.admin.dto.ShowStatsResponse stats = adminService.getShowStats(showId);
+        return ResponseEntity.ok(stats);
+    }
 }
