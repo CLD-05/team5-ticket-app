@@ -87,7 +87,7 @@ public class AdminService {
                 seatNumbers.add(prefix + "-" + i);
             }
 
-            String sql = "INSERT INTO seats (show_id, seat_number, price, status, version) VALUES (?, ?, ?, ?, 0)";
+            String sql = "INSERT INTO seats (show_id, seat_number, price, status) VALUES (?, ?, ?, ?)";
             jdbcTemplate.batchUpdate(sql, new BatchPreparedStatementSetter() {
                 @Override
                 public void setValues(PreparedStatement ps, int i) throws SQLException {
