@@ -215,7 +215,7 @@ jobs:
             --body "$(cat <<BODY
           ## 작업 내용
 
-          prod ticket-service 이미지를 새 ECR 태그로 승격하는 PR임.
+          prod ticket-service 이미지를 새 ECR 태그로 승격하는 PR.
 
           - Image: \`${ECR_REGISTRY}/${ECR_REPOSITORY}:${IMAGE_TAG}\`
           - Config path: \`${CONFIG_KUSTOMIZATION_PATH}\`
@@ -223,7 +223,7 @@ jobs:
 
           ## 배포 흐름
 
-          이 PR이 merge되면 ArgoCD가 config repo 변경을 감지하여 prod Deployment에 반영함.
+          이 PR이 merge되면 ArgoCD가 config repo 변경을 감지하여 prod Deployment에 반영.
 
           \`\`\`text
           app workflow
