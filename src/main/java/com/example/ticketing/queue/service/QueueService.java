@@ -50,6 +50,7 @@ public class QueueService {
     }
 
     public String joinQueue(Long showId, String userId) {
+        checkBookingOpenTime(showId);
         double score = Instant.now().toEpochMilli();
 
         // 같은 사용자가 다시 진입하면 score를 갱신해 대기열 뒤로 보냄
@@ -58,6 +59,7 @@ public class QueueService {
     }
 
     public synchronized QueueStatusResponse enterQueue(Long showId, String userId) {
+        checkBookingOpenTime(showId);
         cleanupExpiredActiveUsers(showId);
 
         if (isActiveUser(showId, userId)) {
@@ -302,6 +304,22 @@ public class QueueService {
 
     private String tokenValue(Long showId, String userId) {
         return showId + ":" + userId;
+    }
+
+    private void checkBookingOpenTime(Long showId) {
+        String key = "show:" + showId + ":booking_open_at";
+        String val = redisTemplate.opsForValue().get(key);
+        if (StringUtils.hasText(val)) {
+            try {
+                long openTime = Long.parseLong(val);
+                long now = Instant.now().getEpochSecond();
+                if (now < openTime) {
+                    throw new BusinessException(ErrorCode.BOOKING_NOT_OPEN);
+                }
+            } catch (NumberFormatException e) {
+                // Ignore parse errors
+            }
+        }
     }
 
     @Schema(description = "대기열 상태 응답")
