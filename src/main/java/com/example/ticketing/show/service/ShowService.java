@@ -8,9 +8,12 @@ import com.example.ticketing.show.entity.Show;
 import com.example.ticketing.show.repository.SeatGradeRepository;
 import com.example.ticketing.show.repository.ShowRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 
 @Service
 @RequiredArgsConstructor
@@ -18,6 +21,7 @@ public class ShowService {
 
     private final ShowRepository showRepository;
     private final SeatGradeRepository seatGradeRepository;
+    private final StringRedisTemplate redisTemplate;
 
     public List<ShowListResponseDto> getShows(String keyword) {
 
@@ -35,6 +39,11 @@ public class ShowService {
     }
 
     public ShowDetailResponseDto getShowDetail(Long showId) {
+        try {
+            redisTemplate.opsForZSet().incrementScore("popular:shows", String.valueOf(showId), 1.0);
+        } catch (Exception e) {
+            // Ignore Redis connection issues in case of fallback
+        }
 
         Show show = showRepository.findById(showId)
                 .orElseThrow(() ->
@@ -66,5 +75,21 @@ public class ShowService {
                                 .toList()
                 )
                 .build();
+    }
+
+    public List<ShowListResponseDto> getPopularShows() {
+        Set<String> popularShowIds = redisTemplate.opsForZSet().reverseRange("popular:shows", 0, 9);
+        if (popularShowIds == null || popularShowIds.isEmpty()) {
+            return List.of();
+        }
+        List<Long> idsInOrder = popularShowIds.stream()
+                .map(Long::valueOf)
+                .toList();
+        List<Show> shows = showRepository.findAllById(idsInOrder);
+        List<Show> sortedShows = new ArrayList<>(shows);
+        sortedShows.sort(java.util.Comparator.comparingInt(show -> idsInOrder.indexOf(show.getShowId())));
+        return sortedShows.stream()
+                .map(ShowListResponseDto::from)
+                .toList();
     }
 }

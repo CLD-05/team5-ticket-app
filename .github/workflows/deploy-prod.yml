@@ -1,12 +1,20 @@
 name: CI/CD - Deploy Prod
 
 on:
-  # 현재 prod 배포는 Actions 화면에서 수동 실행
+  # 필요할 때 Actions 화면에서 수동 실행 가능
   workflow_dispatch:
-  # develop merge 기준 자동 배포가 필요할 경우 아래 주석 해제
-  # push:
-  #   branches:
-  #     - develop
+
+  # develop merge 기준 prod promotion workflow 자동 실행
+  push:
+    branches:
+      - develop
+    paths-ignore:
+      - "**/*.md"
+      - "docs/**"
+      - ".github/ISSUE_TEMPLATE/**"
+      - ".github/PULL_REQUEST_TEMPLATE/**"
+      - ".gitignore"
+      - ".gitattributes"
   # 프로젝트 최종 규칙에 맞출 때는 develop을 main으로 치환
 
 env:
