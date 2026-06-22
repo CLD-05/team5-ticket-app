@@ -172,21 +172,66 @@ jobs:
 
           git diff -- "${CONFIG_KUSTOMIZATION_PATH}"
 
-      # config repo 변경 발생 시에만 commit/push
-      # 이후 ArgoCD가 config repo 변경을 감지해 prod 클러스터에 반영
-      - name: Commit and push config update
+      # config repo 변경 발생 시 prod 승격용 브랜치에 commit/push
+      # 대상 브랜치(develop)에 직접 push하지 않고 PR 승인 후 ArgoCD가 반영
+      - name: Commit and push promotion branch
         env:
           IMAGE_TAG: ${{ steps.vars.outputs.image_tag }}
         run: |
           cd config-repo
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          PROMOTION_BRANCH="promote/prod-ticket-service-${IMAGE_TAG}-${GITHUB_RUN_NUMBER}"
 
           if git diff --quiet -- "${CONFIG_KUSTOMIZATION_PATH}"; then
             echo "No config image tag changes to commit."
             exit 0
           fi
 
+          git checkout -b "${PROMOTION_BRANCH}"
           git add "${CONFIG_KUSTOMIZATION_PATH}"
           git commit -m "chore: update prod ticket-service image tag to ${IMAGE_TAG}"
-          git push origin "${CONFIG_BRANCH}"
+          git push origin "${PROMOTION_BRANCH}"
+
+          echo "promotion_branch=${PROMOTION_BRANCH}" >> "$GITHUB_ENV"
+
+      # prod 반영은 config repo PR 승인/merge 이후 ArgoCD가 수행
+      - name: Create config promotion pull request
+        env:
+          GH_TOKEN: ${{ secrets.CONFIG_REPO_TOKEN }}
+          IMAGE_TAG: ${{ steps.vars.outputs.image_tag }}
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+        run: |
+          if [ -z "${promotion_branch:-}" ]; then
+            echo "No promotion branch was created. Skip PR creation."
+            exit 0
+          fi
+
+          gh pr create \
+            --repo "${CONFIG_REPOSITORY}" \
+            --base "${CONFIG_BRANCH}" \
+            --head "${promotion_branch}" \
+            --title "chore: promote prod ticket-service ${IMAGE_TAG}" \
+            --body "$(cat <<BODY
+          ## 작업 내용
+
+          prod ticket-service 이미지를 새 ECR 태그로 승격하는 PR.
+
+          - Image: \`${ECR_REGISTRY}/${ECR_REPOSITORY}:${IMAGE_TAG}\`
+          - Config path: \`${CONFIG_KUSTOMIZATION_PATH}\`
+          - Base branch: \`${CONFIG_BRANCH}\`
+
+          ## 배포 흐름
+
+          이 PR이 merge되면 ArgoCD가 config repo 변경을 감지하여 prod Deployment에 반영.
+
+          \`\`\`text
+          app workflow
+          -> ECR push
+          -> config repo promotion PR 생성
+          -> PR 승인/merge
+          -> ArgoCD Auto Sync
+          -> prod rollout
+          \`\`\`
+          BODY
+          )"

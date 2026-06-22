@@ -24,7 +24,7 @@ public class ShowService {
         List<Show> shows;
 
         if (keyword != null && !keyword.isBlank()) {
-            shows = showRepository.findByTitleContainingIgnoreCase(keyword);
+            shows = showRepository.findByTitleContainingIgnoreCaseOrVenueContainingIgnoreCase(keyword, keyword);
         } else {
             shows = showRepository.findAll();
         }

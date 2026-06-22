@@ -5,10 +5,13 @@ import java.util.List;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.util.StringUtils;
+import org.springframework.web.bind.annotation.CookieValue;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -76,10 +79,18 @@ public class SeatController {
     public ResponseEntity<?> holdSeat(
             @Parameter(description = "좌석 ID", example = "101")
             @PathVariable Long seatId,
-            @AuthenticationPrincipal String userId
+            @AuthenticationPrincipal String userId,
+            @Parameter(description = "대기열 입장 후 발급된 Queue Token", example = "550e8400-e29b-41d4-a716-446655440000")
+            @RequestHeader(value = "X-Queue-Token", required = false) String queueTokenHeader,
+            @CookieValue(value = "queueToken", required = false) String queueTokenCookie
     ) {
-        var response = seatService.holdSeat(seatId, userId);
+        String queueToken = resolveQueueToken(queueTokenHeader, queueTokenCookie);
+        var response = seatService.holdSeat(seatId, userId, queueToken);
         return ResponseEntity.ok(response);
+    }
+
+    private String resolveQueueToken(String queueTokenHeader, String queueTokenCookie) {
+        return StringUtils.hasText(queueTokenHeader) ? queueTokenHeader : queueTokenCookie;
     }
     
     @Operation(summary = "좌석 선점 해제", description = "현재 사용자가 선점한 좌석을 해제합니다.",
