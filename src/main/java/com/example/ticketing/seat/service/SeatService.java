@@ -7,6 +7,7 @@ import com.example.ticketing.seat.dto.SeatResponseDto;
 import com.example.ticketing.seat.entity.Seat;
 import com.example.ticketing.seat.entity.SeatStatus;
 import com.example.ticketing.seat.repository.SeatRepository;
+import com.example.ticketing.queue.service.QueueService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.script.DefaultRedisScript;
@@ -23,8 +24,7 @@ import java.util.stream.Collectors;
 public class SeatService {
     private final StringRedisTemplate redisTemplate;
     private final SeatRepository seatRepository;
-    // Queue Token 검증 적용 시 추가
-    // private final QueueService queueService;
+    private final QueueService queueService;
 
     @Value("${app.seat.hold-ttl-seconds:300}")
     private long holdTtlSeconds;
@@ -67,11 +67,10 @@ public class SeatService {
                 .collect(Collectors.toList());
     }
 
-    public SeatHoldResponse holdSeat(Long seatId, String userId) {
-        // Queue Token 검증 적용 시 메서드 인자에 String queueToken 추가
-        // Long showId = seatRepository.findShowIdBySeatId(seatId)
-        //         .orElseThrow(() -> new NotFoundException("좌석이 존재하지 않습니다."));
-        // queueService.validateQueueToken(queueToken, showId, userId);
+    public SeatHoldResponse holdSeat(Long seatId, String userId, String queueToken) {
+        Long showId = seatRepository.findShowIdBySeatId(seatId)
+                .orElseThrow(() -> new NotFoundException("좌석이 존재하지 않습니다."));
+        queueService.validateQueueToken(queueToken, showId, userId);
 
         String key = "seat:" + seatId;
 
