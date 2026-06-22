@@ -45,6 +45,12 @@ public class ShowController {
         return showService.getShows(keyword);
     }
 
+    @Operation(summary = "실시간 인기 공연 TOP 10 조회", description = "Redis Sorted Set 조회 수 기준 상위 10개 공연을 반환합니다.")
+    @GetMapping("/popular")
+    public List<ShowListResponseDto> getPopularShows() {
+        return showService.getPopularShows();
+    }
+
     @Operation(summary = "공연 상세 조회", description = "공연 ID로 공연의 기본 정보를 조회합니다.")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "공연 상세 조회 성공",

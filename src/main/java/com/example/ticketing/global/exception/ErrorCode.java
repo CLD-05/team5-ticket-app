@@ -27,7 +27,8 @@ public enum ErrorCode {
     QUEUE_NOT_FOUND(HttpStatus.NOT_FOUND, "B004", "대기열 정보를 찾을 수 없습니다."),
     QUEUE_TOKEN_REQUIRED(HttpStatus.FORBIDDEN, "B005", "Queue Token이 필요합니다."),
     INVALID_QUEUE_TOKEN(HttpStatus.FORBIDDEN, "B006", "유효하지 않은 Queue Token입니다."),
-    QUEUE_TOKEN_EXPIRED(HttpStatus.FORBIDDEN, "B007", "Queue Token이 만료되었습니다.");
+    QUEUE_TOKEN_EXPIRED(HttpStatus.FORBIDDEN, "B007", "Queue Token이 만료되었습니다."),
+    BOOKING_NOT_OPEN(HttpStatus.FORBIDDEN, "B008", "예매 오픈 전입니다.");
 
     private final HttpStatus status;
     private final String code;
