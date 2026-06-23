@@ -7,6 +7,7 @@ import com.example.ticketing.show.repository.ShowRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.CommandLineRunner;
+import org.springframework.context.annotation.Profile;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Component;
 
@@ -15,6 +16,7 @@ import java.util.List;
 
 @Slf4j
 @Component
+@Profile({"local", "docker", "db-init"})
 @RequiredArgsConstructor
 public class DummyDataInitializer implements CommandLineRunner {
 
