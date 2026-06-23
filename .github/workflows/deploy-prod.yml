@@ -98,15 +98,19 @@ jobs:
         uses: aws-actions/amazon-ecr-login@v2
 
       # prod에서는 Docker build를 다시 하지 않음
-      # dev ECR에 있는 검증된 image manifest를 prod ECR에 같은 digest로 승격
-      - name: Promote dev image manifest to prod ECR
+      # dev ECR 이미지를 pull/tag/push하여 layer까지 prod ECR로 승격
+      - name: Promote dev image to prod ECR
         env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
           DEV_IMAGE_TAG: ${{ steps.vars.outputs.dev_image_tag }}
           PROD_IMAGE_TAG: ${{ steps.vars.outputs.prod_image_tag }}
         run: |
           set -euo pipefail
 
-          echo "Promote ${DEV_ECR_REPOSITORY}:${DEV_IMAGE_TAG} -> ${PROD_ECR_REPOSITORY}:${PROD_IMAGE_TAG}"
+          DEV_IMAGE="${ECR_REGISTRY}/${DEV_ECR_REPOSITORY}:${DEV_IMAGE_TAG}"
+          PROD_IMAGE="${ECR_REGISTRY}/${PROD_ECR_REPOSITORY}:${PROD_IMAGE_TAG}"
+
+          echo "Promote ${DEV_IMAGE} -> ${PROD_IMAGE}"
 
           # push 이벤트에서는 dev workflow의 ECR push가 조금 늦게 끝날 수 있어 재시도
           for attempt in $(seq 1 30); do
@@ -130,19 +134,13 @@ jobs:
 
           echo "Dev image digest: ${DEV_IMAGE_DIGEST}"
 
-          aws ecr batch-get-image \
-            --repository-name "${DEV_ECR_REPOSITORY}" \
-            --image-ids imageTag="${DEV_IMAGE_TAG}" \
-            --query 'images[0].imageManifest' \
-            --output text > image-manifest.json
-
           if PROD_IMAGE_DIGEST="$(aws ecr describe-images \
             --repository-name "${PROD_ECR_REPOSITORY}" \
             --image-ids imageTag="${PROD_IMAGE_TAG}" \
             --query 'imageDetails[0].imageDigest' \
             --output text 2>/dev/null)"; then
             if [ "${PROD_IMAGE_DIGEST}" = "${DEV_IMAGE_DIGEST}" ]; then
-              echo "Prod image already exists with the same digest. Skip put-image."
+              echo "Prod image already exists with the same digest. Skip push."
               exit 0
             fi
 
@@ -153,10 +151,9 @@ jobs:
             exit 1
           fi
 
-          aws ecr put-image \
-            --repository-name "${PROD_ECR_REPOSITORY}" \
-            --image-tag "${PROD_IMAGE_TAG}" \
-            --image-manifest file://image-manifest.json
+          docker pull "${DEV_IMAGE}"
+          docker tag "${DEV_IMAGE}" "${PROD_IMAGE}"
+          docker push "${PROD_IMAGE}"
 
       - name: Checkout config repository
         uses: actions/checkout@v4
@@ -286,7 +283,7 @@ jobs:
           dev workflow
           -> dev ECR image build/push
           -> prod workflow
-          -> dev image manifest를 prod ECR로 promotion
+          -> dev image를 prod ECR로 promotion
           -> config repo promotion PR 생성
           -> PR 승인/merge
           -> ArgoCD Auto Sync
