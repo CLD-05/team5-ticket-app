@@ -1,0 +1,715 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Ticket Wave - 공연 상세 정보</title>
+  <!-- Outfit Font from Google Fonts for Premium Aesthetic -->
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800;900&family=Noto+Sans+KR:wght@300;400;700;900&display=swap" rel="stylesheet">
+
+  <style>
+    * {
+      box-sizing: border-box;
+      font-family: 'Outfit', 'Noto Sans KR', sans-serif;
+    }
+
+    body {
+      margin: 0;
+      background: #0b0f19;
+      color: #e2e8f0;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .container {
+      max-width: 1200px;
+      width: 100%;
+      margin: 0 auto;
+      padding: 0 24px;
+    }
+
+    /* Header styling with glassmorphism */
+    .header {
+      background: rgba(17, 24, 39, 0.8);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      padding: 16px 0;
+    }
+
+    .header-inner {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .logo {
+      font-size: 26px;
+      font-weight: 900;
+      color: #818cf8;
+      letter-spacing: -0.5px;
+      cursor: pointer;
+      background: linear-gradient(135deg, #a78bfa, #818cf8);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .user-menu a {
+      color: #94a3b8;
+      text-decoration: none;
+      font-weight: 600;
+      font-size: 14px;
+      transition: color 0.2s;
+    }
+
+    .user-menu a:hover {
+      color: #818cf8;
+    }
+
+    /* Main layout grid */
+    .main-content {
+      margin-top: 48px;
+      flex: 1;
+    }
+
+    .detail-grid {
+      display: grid;
+      grid-template-columns: 400px 1fr;
+      gap: 48px;
+      align-items: start;
+    }
+
+    /* Left Side: Poster */
+    .poster-section {
+      position: sticky;
+      top: 100px;
+    }
+
+    .poster-card {
+      border-radius: 24px;
+      overflow: hidden;
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      background: linear-gradient(135deg, #312e81, #1e1b4b);
+      aspect-ratio: 3/4;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      text-align: center;
+      padding: 40px;
+      position: relative;
+    }
+
+    .poster-badge {
+      position: absolute;
+      top: 24px;
+      left: 24px;
+      background: #818cf8;
+      color: white;
+      font-size: 12px;
+      font-weight: 800;
+      padding: 6px 14px;
+      border-radius: 12px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    .poster-icon {
+      font-size: 80px;
+      margin-bottom: 24px;
+      filter: drop-shadow(0 8px 16px rgba(129, 140, 248, 0.4));
+    }
+
+    .poster-card h2 {
+      font-size: 32px;
+      font-weight: 900;
+      margin: 0 0 12px;
+      line-height: 1.2;
+      color: #ffffff;
+    }
+
+    .poster-card p {
+      font-size: 16px;
+      color: #a5b4fc;
+      margin: 0;
+    }
+
+    /* Right Side: Info & Actions */
+    .info-section {
+      display: flex;
+      flex-direction: column;
+      gap: 32px;
+    }
+
+    .show-header {
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      padding-bottom: 24px;
+    }
+
+    .show-title-tag {
+      display: inline-block;
+      background: rgba(129, 140, 248, 0.1);
+      color: #a5b4fc;
+      padding: 6px 12px;
+      border-radius: 999px;
+      font-size: 13px;
+      font-weight: 700;
+      margin-bottom: 16px;
+      border: 1px solid rgba(129, 140, 248, 0.2);
+    }
+
+    .show-main-title {
+      font-size: 42px;
+      font-weight: 900;
+      margin: 0 0 12px;
+      color: #ffffff;
+      line-height: 1.15;
+    }
+
+    .show-venue {
+      font-size: 18px;
+      color: #94a3b8;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .show-venue::before {
+      content: '📍';
+      font-size: 16px;
+    }
+
+    /* Info cards */
+    .card {
+      background: rgba(30, 41, 59, 0.4);
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      border-radius: 20px;
+      padding: 28px;
+    }
+
+    .card-title {
+      font-size: 18px;
+      font-weight: 800;
+      margin: 0 0 20px;
+      color: #ffffff;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    /* Dates / Schedules */
+    .schedule-list {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 20px;
+    }
+
+    .schedule-item {
+      background: rgba(15, 23, 42, 0.4);
+      padding: 16px;
+      border-radius: 14px;
+      border: 1px solid rgba(255, 255, 255, 0.02);
+    }
+
+    .schedule-label {
+      font-size: 12px;
+      color: #64748b;
+      margin-bottom: 6px;
+      font-weight: 700;
+      text-transform: uppercase;
+    }
+
+    .schedule-val {
+      font-size: 16px;
+      color: #f1f5f9;
+      font-weight: 700;
+    }
+
+    /* Seat Status Table */
+    .seat-table {
+      width: 100%;
+      border-collapse: collapse;
+      text-align: left;
+    }
+
+    .seat-table th {
+      padding: 12px;
+      font-size: 13px;
+      color: #64748b;
+      font-weight: 800;
+      border-bottom: 2px solid rgba(255, 255, 255, 0.05);
+    }
+
+    .seat-table td {
+      padding: 16px 12px;
+      font-size: 15px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+      color: #cbd5e1;
+    }
+
+    .seat-grade-badge {
+      display: inline-block;
+      font-size: 13px;
+      font-weight: 900;
+      padding: 4px 10px;
+      border-radius: 8px;
+      text-align: center;
+    }
+
+    .badge-vip { background: rgba(245, 158, 11, 0.15); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.3); }
+    .badge-r { background: rgba(239, 68, 68, 0.15); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.3); }
+    .badge-s { background: rgba(59, 130, 246, 0.15); color: #60a5fa; border: 1px solid rgba(59, 130, 246, 0.3); }
+    .badge-a { background: rgba(16, 185, 129, 0.15); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.3); }
+
+    .remaining-count {
+      font-weight: 700;
+      color: #38bdf8;
+    }
+
+    .sold-out {
+      color: #64748b !important;
+      text-decoration: line-through;
+    }
+
+    /* Booking section / Action panel */
+    .action-panel {
+      background: linear-gradient(135deg, #1e1b4b, #0f172a);
+      border: 1px solid rgba(129, 140, 248, 0.15);
+      box-shadow: 0 10px 30px rgba(99, 102, 241, 0.1);
+    }
+
+    .countdown-container {
+      background: rgba(0, 0, 0, 0.2);
+      border-radius: 12px;
+      padding: 16px;
+      text-align: center;
+      margin-bottom: 24px;
+      border: 1px solid rgba(255, 255, 255, 0.02);
+    }
+
+    .countdown-title {
+      font-size: 13px;
+      color: #818cf8;
+      font-weight: 800;
+      margin-bottom: 6px;
+      letter-spacing: 0.5px;
+    }
+
+    .countdown-timer {
+      font-size: 24px;
+      font-weight: 900;
+      color: #ffffff;
+      letter-spacing: 1px;
+    }
+
+    .book-btn {
+      width: 100%;
+      height: 60px;
+      border: 0;
+      border-radius: 14px;
+      font-size: 18px;
+      font-weight: 900;
+      cursor: pointer;
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      text-decoration: none;
+    }
+
+    /* Button variants */
+    .btn-active {
+      background: linear-gradient(135deg, #4f46e5, #7c3aed);
+      color: white;
+      box-shadow: 0 8px 24px rgba(99, 102, 241, 0.35);
+    }
+
+    .btn-active:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 12px 30px rgba(99, 102, 241, 0.5);
+    }
+
+    .btn-disabled {
+      background: #334155;
+      color: #64748b;
+      cursor: not-allowed;
+      border: 1px solid rgba(255, 255, 255, 0.05);
+    }
+
+    .footer {
+      margin-top: 80px;
+      padding: 40px 0;
+      background: #0f172a;
+      color: #475569;
+      text-align: center;
+      font-size: 14px;
+      border-top: 1px solid rgba(255, 255, 255, 0.03);
+    }
+
+    /* Responsive */
+    @media (max-width: 900px) {
+      .detail-grid {
+        grid-template-columns: 1fr;
+        gap: 32px;
+      }
+      .poster-section {
+        position: relative;
+        top: 0;
+        max-width: 400px;
+        margin: 0 auto;
+      }
+      .show-main-title {
+        font-size: 32px;
+      }
+    }
+  </style>
+</head>
+
+<body>
+
+  <header class="header">
+    <div class="container header-inner">
+      <div class="logo" onclick="location.href='/'">Ticket Wave</div>
+      <div class="user-menu" id="userMenu">
+        <!-- JavaScript로 로그인 정보 동적 렌더링 -->
+      </div>
+    </div>
+  </header>
+
+  <main class="container main-content">
+    <div class="detail-grid">
+      <!-- Left Poster card -->
+      <div class="poster-section">
+        <div class="poster-card">
+          <span class="poster-badge" id="categoryBadge">CONCERT</span>
+          <div class="poster-icon">🎟️</div>
+          <h2 id="posterTitle">Loading...</h2>
+          <p id="posterVenue">Loading...</p>
+        </div>
+      </div>
+
+      <!-- Right Info sections -->
+      <div class="info-section">
+        <div class="show-header">
+          <span class="show-title-tag">공연 예매 안내</span>
+          <h1 class="show-main-title" id="showTitle">Loading...</h1>
+          <div class="show-venue" id="showVenue">Loading...</div>
+        </div>
+
+        <!-- Schedule Section -->
+        <div class="card">
+          <h3 class="card-title">📅 예매 일정</h3>
+          <div class="schedule-list">
+            <div class="schedule-item">
+              <div class="schedule-label">예매 시작</div>
+              <div class="schedule-val" id="openTimeVal">Loading...</div>
+            </div>
+            <div class="schedule-item">
+              <div class="schedule-label">예매 마감</div>
+              <div class="schedule-val" id="closeTimeVal">Loading...</div>
+            </div>
+            <div class="schedule-item">
+              <div class="schedule-label">공연 일시</div>
+              <div class="schedule-val" id="performanceTimeVal">Loading...</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Seats Section -->
+        <div class="card">
+          <h3 class="card-title">💺 좌석 등급 및 잔여 현황</h3>
+          <div style="overflow-x: auto;">
+            <table class="seat-table">
+              <thead>
+                <tr>
+                  <th>좌석 등급</th>
+                  <th>가격</th>
+                  <th>전체 좌석</th>
+                  <th>잔여 좌석</th>
+                </tr>
+              </thead>
+              <tbody id="seatTableBody">
+                <tr>
+                  <td colspan="4" style="text-align: center; color: #64748b;">좌석 정보를 불러오는 중입니다...</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Action Panel -->
+        <div class="card action-panel">
+          <!-- Countdown (Shown only if before open time) -->
+          <div class="countdown-container hidden" id="countdownBox">
+            <div class="countdown-title">⏰ 예매 오픈 카운트다운</div>
+            <div class="countdown-timer" id="timerDisplay">00:00:00</div>
+          </div>
+
+          <!-- Book Button -->
+          <button class="book-btn btn-disabled" id="bookBtn" disabled>
+            상태 조회 중...
+          </button>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <footer class="footer">
+    Ticket Wave © 2026 공연 예매 플랫폼. All Rights Reserved.
+  </footer>
+
+  <script th:inline="javascript">
+    /* Thymeleaf를 통해 서버에서 내려주는 showId 파싱 */
+    const showId = [[${showId}]];
+
+    let bookingOpenAt = null;
+    let bookingCloseAt = null;
+    let performanceAt = null;
+    let timerInterval = null;
+
+    document.addEventListener("DOMContentLoaded", () => {
+        renderHeader();
+        fetchShowDetails();
+        fetchSeatDetails();
+    });
+
+    function getAccessToken() {
+        return localStorage.getItem("accessToken");
+    }
+
+    function renderHeader() {
+        const userMenu = document.getElementById("userMenu");
+        const token = getAccessToken();
+        if (token) {
+            userMenu.innerHTML = `
+                <a href="/mypage" style="margin-right: 18px;">마이페이지</a>
+                <a href="#" id="logoutBtn">로그아웃</a>
+            `;
+            document.getElementById("logoutBtn").addEventListener("click", (e) => {
+                e.preventDefault();
+                localStorage.clear();
+                location.reload();
+            });
+        } else {
+            userMenu.innerHTML = `
+                <a href="/login" style="margin-right: 18px;">로그인</a>
+                <a href="/signup">회원가입</a>
+            `;
+        }
+    }
+
+    function formatTimestamp(ts) {
+        if (!ts) return "정보 없음";
+        const date = new Date(ts * 1000);
+        return date.toLocaleString('ko-KR', {
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit',
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit',
+            hour12: false
+        });
+    }
+
+    async function fetchShowDetails() {
+        try {
+            const response = await fetch(`/api/v1/shows/${showId}`);
+            if (!response.ok) {
+                alert("공연 상세 정보를 불러오는데 실패했습니다.");
+                return;
+            }
+            const data = await response.json();
+            
+            // UI에 기본 정보 설정
+            document.getElementById("showTitle").innerText = data.title;
+            document.getElementById("posterTitle").innerText = data.title;
+            document.getElementById("showVenue").innerText = data.venue;
+            document.getElementById("posterVenue").innerText = data.venue;
+
+            // 타임스탬프 설정
+            bookingOpenAt = data.bookingOpenAt;
+            bookingCloseAt = data.bookingCloseAt;
+            performanceAt = data.performanceAt;
+
+            document.getElementById("openTimeVal").innerText = formatTimestamp(bookingOpenAt);
+            document.getElementById("closeTimeVal").innerText = formatTimestamp(bookingCloseAt);
+            document.getElementById("performanceTimeVal").innerText = formatTimestamp(performanceAt);
+
+            // 타이머 및 예매 버튼 상태 변경 시작
+            initBookingStatus();
+        } catch (e) {
+            console.error(e);
+        }
+    }
+
+    async function fetchSeatDetails() {
+        const tableBody = document.getElementById("seatTableBody");
+        try {
+            const response = await fetch(`/api/v1/shows/${showId}/seats`);
+            if (!response.ok) {
+                tableBody.innerHTML = `<tr><td colspan="4" style="text-align: center; color: #ef4444;">좌석 정보를 불러오지 못했습니다.</td></tr>`;
+                return;
+            }
+            const data = await response.json();
+            const grades = data.seatGrades;
+
+            if (!grades || grades.length === 0) {
+                tableBody.innerHTML = `<tr><td colspan="4" style="text-align: center; color: #64748b;">등록된 좌석 등급이 없습니다.</td></tr>`;
+                return;
+            }
+
+            tableBody.innerHTML = "";
+            grades.forEach(grade => {
+                const tr = document.createElement("tr");
+                
+                // 가격 포맷팅
+                const priceFormatted = grade.price.toLocaleString('ko-KR') + "원";
+                
+                // 좌석 등급별 뱃지 스타일 매핑
+                const lowerName = grade.gradeName.toLowerCase();
+                let badgeClass = "badge-a";
+                if (lowerName.includes("vip")) badgeClass = "badge-vip";
+                else if (lowerName.includes("r")) badgeClass = "badge-r";
+                else if (lowerName.includes("s")) badgeClass = "badge-s";
+
+                const isSoldOut = grade.remainingSeats <= 0;
+                const remainingHtml = isSoldOut 
+                    ? `<span class="sold-out">매진</span>` 
+                    : `<span class="remaining-count">${grade.remainingSeats}석</span>`;
+
+                tr.innerHTML = `
+                    <td><span class="seat-grade-badge ${badgeClass}">${grade.gradeName}</span></td>
+                    <td>${priceFormatted}</td>
+                    <td>${grade.totalSeats}석</td>
+                    <td>${remainingHtml}</td>
+                `;
+                tableBody.appendChild(tr);
+            });
+        } catch (e) {
+            tableBody.innerHTML = `<tr><td colspan="4" style="text-align: center; color: #ef4444;">서버 오류로 인해 좌석 정보를 조회할 수 없습니다.</td></tr>`;
+        }
+    }
+
+    function initBookingStatus() {
+        if (timerInterval) clearInterval(timerInterval);
+        
+        updateStatus();
+        timerInterval = setInterval(updateStatus, 1000);
+    }
+
+    function updateStatus() {
+        const bookBtn = document.getElementById("bookBtn");
+        const countdownBox = document.getElementById("countdownBox");
+        const timerDisplay = document.getElementById("timerDisplay");
+
+        const now = Math.floor(Date.now() / 1000);
+
+        // 1. 아직 오픈 전인 경우
+        if (bookingOpenAt && now < bookingOpenAt) {
+            countdownBox.classList.remove("hidden");
+            const diff = bookingOpenAt - now;
+            
+            const hours = Math.floor(diff / 3600);
+            const minutes = Math.floor((diff % 3600) / 60);
+            const seconds = diff % 60;
+
+            timerDisplay.innerText = 
+                `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+
+            bookBtn.className = "book-btn btn-disabled";
+            bookBtn.innerText = "예매 오픈 대기 중";
+            bookBtn.disabled = true;
+        } 
+        // 2. 예매 진행 중인 경우 (오픈 후 ~ 마감 전)
+        else if (bookingOpenAt && (!bookingCloseAt || now < bookingCloseAt)) {
+            countdownBox.classList.add("hidden");
+            bookBtn.className = "book-btn btn-active";
+            bookBtn.innerText = "🎟️ 예매하기 (대기열 진입)";
+            bookBtn.disabled = false;
+            
+            // 클릭 리스너 설정 (최초 1회 설정 또는 기설정 갱신)
+            bookBtn.onclick = () => tryBooking();
+        } 
+        // 3. 예매 마감된 경우
+        else {
+            countdownBox.classList.add("hidden");
+            bookBtn.className = "book-btn btn-disabled";
+            bookBtn.innerText = "🚫 예매 마감";
+            bookBtn.disabled = true;
+            if (timerInterval) clearInterval(timerInterval);
+        }
+    }
+
+    async function tryBooking() {
+        const token = getAccessToken();
+        if (!token) {
+            alert("로그인이 필요한 서비스입니다. 로그인 페이지로 이동합니다.");
+            window.location.href = "/login";
+            return;
+        }
+
+        const bookBtn = document.getElementById("bookBtn");
+        bookBtn.disabled = true;
+        bookBtn.innerText = "대기열 상태를 확인하고 있습니다...";
+
+        try {
+            const response = await fetch(`/api/v1/shows/${showId}/queue/enter`, {
+                method: "POST",
+                headers: {
+                    Authorization: `Bearer ${token}`
+                }
+            });
+
+            if (response.status === 401) {
+                alert("로그인 세션이 만료되었거나 유효하지 않습니다. 다시 로그인해 주세요.");
+                localStorage.clear();
+                window.location.href = "/login";
+                return;
+            }
+
+            if (response.status === 403) {
+                // 예매 차단 상태 (예: 예매 오픈 전)
+                const errData = await response.json();
+                alert(errData.message || "예매 오픈 전이거나 예매가 불가능합니다.");
+                location.reload();
+                return;
+            }
+
+            if (!response.ok) {
+                alert("대기열 서버에 일시적인 장애가 있습니다. 잠시 후 다시 시도해 주세요.");
+                bookBtn.disabled = false;
+                bookBtn.innerText = "🎟️ 예매하기 (대기열 진입)";
+                return;
+            }
+
+            const data = await response.json();
+            
+            // 대기열 ACTIVE 입장 허용된 경우
+            if (data.status === "ACTIVE" || data.canEnter === true) {
+                sessionStorage.setItem("queueToken", data.queueToken);
+                sessionStorage.setItem("queueShowId", String(showId));
+                document.cookie = `accessToken=${token}; path=/; SameSite=Lax`;
+                document.cookie = `queueToken=${data.queueToken}; path=/; SameSite=Lax`;
+                window.location.href = `/shows/${showId}/seat`;
+                return;
+            }
+
+            // 대기(WAITING) 상태인 경우 대기 화면으로 이동
+            window.location.href = `/shows/${showId}/queue`;
+        } catch (error) {
+            alert("서버 연결에 실패했습니다. 잠시 후 다시 시도해주세요.");
+            bookBtn.disabled = false;
+            bookBtn.innerText = "🎟️ 예매하기 (대기열 진입)";
+        }
+    }
+  </script>
+</body>
+
+</html>

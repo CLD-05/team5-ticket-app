@@ -119,6 +119,20 @@ public class AdminController {
         }
     }
 
+    @Operation(summary = "공연 예매 시간 수정", description = "기존 공연의 예매 시작/마감 및 공연 시간을 수정합니다. (어드민 토큰 검증 필요)")
+    @PostMapping("/shows/{showId}/booking-time")
+    public ResponseEntity<String> updateBookingTime(
+            @Parameter(description = "어드민 인증 토큰", example = "admin-secret-key")
+            @RequestHeader(value = "X-Admin-Token", required = false) String token,
+            @Parameter(description = "공연 ID", example = "1")
+            @PathVariable Long showId,
+            @RequestBody CreateShowRequest request
+    ) {
+        validateAdminToken(token);
+        adminService.updateBookingTime(showId, request);
+        return ResponseEntity.ok("Successfully updated booking time for show " + showId);
+    }
+
     @Operation(summary = "어드민 토큰 검증", description = "입력한 어드민 토큰 또는 OTP 코드의 유효성을 검증합니다.")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "검증 성공"),

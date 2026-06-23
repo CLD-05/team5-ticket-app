@@ -49,7 +49,23 @@ public class ShowService {
                 .orElseThrow(() ->
                         new IllegalArgumentException("공연을 찾을 수 없습니다."));
 
-        return ShowDetailResponseDto.from(show);
+        String openTimeStr = redisTemplate.opsForValue().get("show:" + showId + ":booking_open_at");
+        String closeTimeStr = redisTemplate.opsForValue().get("show:" + showId + ":booking_close_at");
+        String perfTimeStr = redisTemplate.opsForValue().get("show:" + showId + ":performance_at");
+
+        Long bookingOpenAt = null;
+        Long bookingCloseAt = null;
+        Long performanceAt = null;
+
+        try {
+            if (openTimeStr != null) bookingOpenAt = Long.parseLong(openTimeStr);
+            if (closeTimeStr != null) bookingCloseAt = Long.parseLong(closeTimeStr);
+            if (perfTimeStr != null) performanceAt = Long.parseLong(perfTimeStr);
+        } catch (NumberFormatException e) {
+            // Ignore parse errors
+        }
+
+        return ShowDetailResponseDto.from(show, bookingOpenAt, bookingCloseAt, performanceAt);
     }
 
     public SeatMapResponseDto getSeatMap(Long showId) {
