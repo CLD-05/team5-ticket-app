@@ -307,7 +307,7 @@
                     <div id="timer-box"><span id="timer">05:00</span></div>
                     <div class="legend-title">
                         <span>좌석등급/잔여석</span>
-                        <button class="btn-refresh" onclick="fetchSeats()">새로고침</button>
+                        <button class="btn-refresh" onclick="refreshAndReleaseSeat()">새로고침</button>
                     </div>
                     <div id="legend-list"></div>
                 </div>
@@ -597,6 +597,28 @@
 
         fetchSeats();
         setInterval(fetchSeats, 2000);
+        
+        async function refreshAndReleaseSeat() {
+            if (currentSelectedSeatId !== null) {
+                const seatIdToRelease = currentSelectedSeatId;
+                currentSelectedSeatId = null;
+
+                if (countdownInterval) clearInterval(countdownInterval);
+                document.getElementById('timer').textContent = "05:00";
+                document.getElementById('status-bar').textContent = "좌석을 선택해 주세요.";
+
+                try {
+                    await fetch(`/api/v1/seats/${seatIdToRelease}/hold`, {
+                        method: 'DELETE',
+                        headers: authHeaders()
+                    });
+                } catch (e) {
+                    console.error(e);
+                }
+            }
+
+            fetchSeats();
+        }
         /*]]>*/
     </script>
 
