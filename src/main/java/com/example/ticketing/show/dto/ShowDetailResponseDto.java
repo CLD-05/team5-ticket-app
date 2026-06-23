@@ -28,6 +28,9 @@ public class ShowDetailResponseDto {
     @Schema(description = "공연 시작 시간 (Unix Timestamp)", example = "1782130000")
     private Long performanceAt;
 
+    @Schema(description = "공연 이미지 URL")
+    private String imageUrl;
+
     public static ShowDetailResponseDto from(Show show, Long bookingOpenAt, Long bookingCloseAt, Long performanceAt) {
         return ShowDetailResponseDto.builder()
                 .showId(show.getShowId())
@@ -36,6 +39,7 @@ public class ShowDetailResponseDto {
                 .bookingOpenAt(bookingOpenAt)
                 .bookingCloseAt(bookingCloseAt)
                 .performanceAt(performanceAt)
+                .imageUrl(show.getImageUrl())
                 .build();
     }
 }

@@ -37,6 +37,8 @@ jwt:
 app:
   sqs:
     booking-queue: ${AWS_SQS_BOOKING_QUEUE_URL:booking-queue}
+  s3:
+    bucket: ${AWS_S3_POSTER_BUCKET:team5-dev-poster-bucket}
 
 management:
   endpoints:
