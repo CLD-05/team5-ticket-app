@@ -89,47 +89,47 @@ INSERT INTO shows (show_id, title, venue) VALUES
 (18, '뮤지컬 엘리자벳 ELISABETH', '예술의전당 오페라극장')
 ON DUPLICATE KEY UPDATE title=title, venue=venue;
 
--- 좌석 등급 삽입 (각 공연당 VIP 80석, R 80석, S 80석 = 총 240석)
+-- 좌석 등급 삽입 (각 공연당 VIP 120석, R 120석, S 120석 = 총 360석)
 INSERT INTO seat_grades (id, show_id, grade_name, price, total_seats, remaining_seats) VALUES
 -- 1. 임영웅
-(1, 1, 'VIP', 165000, 80, 80), (2, 1, 'R', 132000, 80, 80), (3, 1, 'S', 99000, 80, 80),
+(1, 1, 'VIP', 165000, 120, 120), (2, 1, 'R', 132000, 120, 120), (3, 1, 'S', 99000, 120, 120),
 -- 2. 싸이
-(4, 2, 'VIP', 165000, 80, 80), (5, 2, 'R', 132000, 80, 80), (6, 2, 'S', 99000, 80, 80),
+(4, 2, 'VIP', 165000, 120, 120), (5, 2, 'R', 132000, 120, 120), (6, 2, 'S', 99000, 120, 120),
 -- 3. 아이유
-(7, 3, 'VIP', 165000, 80, 80), (8, 3, 'R', 132000, 80, 80), (9, 3, 'S', 99000, 80, 80),
+(7, 3, 'VIP', 165000, 120, 120), (8, 3, 'R', 132000, 120, 120), (9, 3, 'S', 99000, 120, 120),
 -- 4. 뉴진스
-(10, 4, 'VIP', 165000, 80, 80), (11, 4, 'R', 132000, 80, 80), (12, 4, 'S', 99000, 80, 80),
+(10, 4, 'VIP', 165000, 120, 120), (11, 4, 'R', 132000, 120, 120), (12, 4, 'S', 99000, 120, 120),
 -- 5. 방탄소년단
-(13, 5, 'VIP', 165000, 80, 80), (14, 5, 'R', 132000, 80, 80), (15, 5, 'S', 99000, 80, 80),
+(13, 5, 'VIP', 165000, 120, 120), (14, 5, 'R', 132000, 120, 120), (15, 5, 'S', 99000, 120, 120),
 -- 6. 에스파
-(16, 6, 'VIP', 165000, 80, 80), (17, 6, 'R', 132000, 80, 80), (18, 6, 'S', 99000, 80, 80),
+(16, 6, 'VIP', 165000, 120, 120), (17, 6, 'R', 132000, 120, 120), (18, 6, 'S', 99000, 120, 120),
 -- 7. 뮤지컬 시카고
-(19, 7, 'VIP', 165000, 80, 80), (20, 7, 'R', 132000, 80, 80), (21, 7, 'S', 99000, 80, 80),
+(19, 7, 'VIP', 165000, 120, 120), (20, 7, 'R', 132000, 120, 120), (21, 7, 'S', 99000, 120, 120),
 -- 8. 지킬앤하이드
-(22, 8, 'VIP', 165000, 80, 80), (23, 8, 'R', 132000, 80, 80), (24, 8, 'S', 99000, 80, 80),
+(22, 8, 'VIP', 165000, 120, 120), (23, 8, 'R', 132000, 120, 120), (24, 8, 'S', 99000, 120, 120),
 -- 9. 레미제라블
-(25, 9, 'VIP', 165000, 80, 80), (26, 9, 'R', 132000, 80, 80), (27, 9, 'S', 99000, 80, 80),
+(25, 9, 'VIP', 165000, 120, 120), (26, 9, 'R', 132000, 120, 120), (27, 9, 'S', 99000, 120, 120),
 -- 10. 오페라의 유령
-(28, 10, 'VIP', 165000, 80, 80), (29, 10, 'R', 132000, 80, 80), (30, 10, 'S', 99000, 80, 80),
+(28, 10, 'VIP', 165000, 120, 120), (29, 10, 'R', 132000, 120, 120), (30, 10, 'S', 99000, 120, 120),
 -- 11. 워터밤
-(31, 11, 'VIP', 165000, 80, 80), (32, 11, 'R', 132000, 80, 80), (33, 11, 'S', 99000, 80, 80),
+(31, 11, 'VIP', 165000, 120, 120), (32, 11, 'R', 132000, 120, 120), (33, 11, 'S', 99000, 120, 120),
 -- 12. 서울재즈페스티벌
-(34, 12, 'VIP', 165000, 80, 80), (35, 12, 'R', 132000, 80, 80), (36, 12, 'S', 99000, 80, 80),
+(34, 12, 'VIP', 165000, 120, 120), (35, 12, 'R', 132000, 120, 120), (36, 12, 'S', 99000, 120, 120),
 -- 13. 악뮤
-(37, 13, 'VIP', 165000, 80, 80), (38, 13, 'R', 132000, 80, 80), (39, 13, 'S', 99000, 80, 80),
+(37, 13, 'VIP', 165000, 120, 120), (38, 13, 'R', 132000, 120, 120), (39, 13, 'S', 99000, 120, 120),
 -- 14. 데이식스
-(40, 14, 'VIP', 165000, 80, 80), (41, 14, 'R', 132000, 80, 80), (42, 14, 'S', 99000, 80, 80),
+(40, 14, 'VIP', 165000, 120, 120), (41, 14, 'R', 132000, 120, 120), (42, 14, 'S', 99000, 120, 120),
 -- 15. 아이브
-(43, 15, 'VIP', 165000, 80, 80), (44, 15, 'R', 132000, 80, 80), (45, 15, 'S', 99000, 80, 80),
+(43, 15, 'VIP', 165000, 120, 120), (44, 15, 'R', 132000, 120, 120), (45, 15, 'S', 99000, 120, 120),
 -- 16. 성시경
-(46, 16, 'VIP', 165000, 80, 80), (47, 16, 'R', 132000, 80, 80), (48, 16, 'S', 99000, 80, 80),
+(46, 16, 'VIP', 165000, 120, 120), (47, 16, 'R', 132000, 120, 120), (48, 16, 'S', 99000, 120, 120),
 -- 17. 조용필
-(49, 17, 'VIP', 165000, 80, 80), (50, 17, 'R', 132000, 80, 80), (51, 17, 'S', 99000, 80, 80),
+(49, 17, 'VIP', 165000, 120, 120), (50, 17, 'R', 132000, 120, 120), (51, 17, 'S', 99000, 120, 120),
 -- 18. 뮤지컬 엘리자벳
-(52, 18, 'VIP', 165000, 80, 80), (53, 18, 'R', 132000, 80, 80), (54, 18, 'S', 99000, 80, 80)
+(52, 18, 'VIP', 165000, 120, 120), (53, 18, 'R', 132000, 120, 120), (54, 18, 'S', 99000, 120, 120)
 ON DUPLICATE KEY UPDATE grade_name=grade_name, price=price;
 
--- 18개 공연에 대해 총 4,320개 좌석 벌크 인서트 프로시저 정의 및 실행
+-- 18개 공연에 대해 총 6,480개 좌석 벌크 인서트 프로시저 정의 및 실행 (공연당 VIP/R/S 각 A, B, C 구역 40석씩 = 총 360석)
 DELIMITER $$
 CREATE PROCEDURE PopulateSeats()
 BEGIN
@@ -137,27 +137,75 @@ BEGIN
     DECLARE seat_idx INT DEFAULT 1;
     
     WHILE show_idx <= 18 DO
-        -- VIP seats (V-A-1 ~ V-A-80)
+        -- ====================
+        -- 1. VIP (V-A, V-B, V-C) 각 40석씩
+        -- ====================
         SET seat_idx = 1;
-        WHILE seat_idx <= 80 DO
+        WHILE seat_idx <= 40 DO
             INSERT INTO seats (show_id, seat_number, price, status)
             VALUES (show_idx, CONCAT('V-A-', seat_idx), 165000, 'AVAILABLE');
             SET seat_idx = seat_idx + 1;
         END WHILE;
-        
-        -- R seats (R-A-1 ~ R-A-80)
+
         SET seat_idx = 1;
-        WHILE seat_idx <= 80 DO
+        WHILE seat_idx <= 40 DO
+            INSERT INTO seats (show_id, seat_number, price, status)
+            VALUES (show_idx, CONCAT('V-B-', seat_idx), 165000, 'AVAILABLE');
+            SET seat_idx = seat_idx + 1;
+        END WHILE;
+
+        SET seat_idx = 1;
+        WHILE seat_idx <= 40 DO
+            INSERT INTO seats (show_id, seat_number, price, status)
+            VALUES (show_idx, CONCAT('V-C-', seat_idx), 165000, 'AVAILABLE');
+            SET seat_idx = seat_idx + 1;
+        END WHILE;
+        
+        -- ====================
+        -- 2. R (R-A, R-B, R-C) 각 40석씩
+        -- ====================
+        SET seat_idx = 1;
+        WHILE seat_idx <= 40 DO
             INSERT INTO seats (show_id, seat_number, price, status)
             VALUES (show_idx, CONCAT('R-A-', seat_idx), 132000, 'AVAILABLE');
             SET seat_idx = seat_idx + 1;
         END WHILE;
-        
-        -- S seats (S-A-1 ~ S-A-80)
+
         SET seat_idx = 1;
-        WHILE seat_idx <= 80 DO
+        WHILE seat_idx <= 40 DO
+            INSERT INTO seats (show_id, seat_number, price, status)
+            VALUES (show_idx, CONCAT('R-B-', seat_idx), 132000, 'AVAILABLE');
+            SET seat_idx = seat_idx + 1;
+        END WHILE;
+
+        SET seat_idx = 1;
+        WHILE seat_idx <= 40 DO
+            INSERT INTO seats (show_id, seat_number, price, status)
+            VALUES (show_idx, CONCAT('R-C-', seat_idx), 132000, 'AVAILABLE');
+            SET seat_idx = seat_idx + 1;
+        END WHILE;
+        
+        -- ====================
+        -- 3. S (S-A, S-B, S-C) 각 40석씩
+        -- ====================
+        SET seat_idx = 1;
+        WHILE seat_idx <= 40 DO
             INSERT INTO seats (show_id, seat_number, price, status)
             VALUES (show_idx, CONCAT('S-A-', seat_idx), 99000, 'AVAILABLE');
+            SET seat_idx = seat_idx + 1;
+        END WHILE;
+
+        SET seat_idx = 1;
+        WHILE seat_idx <= 40 DO
+            INSERT INTO seats (show_id, seat_number, price, status)
+            VALUES (show_idx, CONCAT('S-B-', seat_idx), 99000, 'AVAILABLE');
+            SET seat_idx = seat_idx + 1;
+        END WHILE;
+
+        SET seat_idx = 1;
+        WHILE seat_idx <= 40 DO
+            INSERT INTO seats (show_id, seat_number, price, status)
+            VALUES (show_idx, CONCAT('S-C-', seat_idx), 99000, 'AVAILABLE');
             SET seat_idx = seat_idx + 1;
         END WHILE;
         
