@@ -30,9 +30,6 @@ spring:
         enabled: false
       region:
         static: ap-northeast-2
-      credentials:
-        access-key: test-access-key
-        secret-key: test-secret-key
 
 jwt:
   secret: c2VjcmV0LWtleS1wbGFjZWhvbGRlci1hdC1sZWFzdC0zMi1jaGFyYWN0ZXJzLWxvbmc=
@@ -44,7 +41,7 @@ app:
   s3:
     bucket: ${AWS_S3_POSTER_BUCKET:team5-dev-poster-bucket}
   admin:
-    token: admin
+    token: ${ADMIN_TOKEN:admin}
 
 management:
   endpoints:
