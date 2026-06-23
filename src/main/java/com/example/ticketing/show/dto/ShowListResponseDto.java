@@ -19,11 +19,15 @@ public class ShowListResponseDto {
     @Schema(description = "공연장", example = "KSPO DOME")
     private String venue;
 
+    @Schema(description = "공연 이미지 URL", example = "http://localhost:4566/team5-dev-poster-bucket/image.jpg")
+    private String imageUrl;
+
     public static ShowListResponseDto from(Show show) {
         return ShowListResponseDto.builder()
                 .showId(show.getShowId())
                 .title(show.getTitle())
                 .venue(show.getVenue())
+                .imageUrl(show.getImageUrl())
                 .build();
     }
 }

@@ -541,7 +541,11 @@
                 if (existingImg) existingImg.remove();
                 
                 const img = document.createElement("img");
-                img.src = data.imageUrl;
+                let imgUrl = data.imageUrl;
+                if (imgUrl.includes("http://localstack:4566")) {
+                    imgUrl = imgUrl.replace("http://localstack:4566", "http://localhost:4566");
+                }
+                img.src = imgUrl;
                 img.className = "poster-image";
                 img.alt = data.title;
                 img.style.position = "absolute";

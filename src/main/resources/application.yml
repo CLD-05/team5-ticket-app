@@ -4,6 +4,10 @@ spring:
     username: root
     password: 1234
     driver-class-name: com.mysql.cj.jdbc.Driver
+  servlet:
+    multipart:
+      max-file-size: 10MB
+      max-request-size: 10MB
 
   jpa:
     hibernate:
@@ -39,6 +43,8 @@ app:
     booking-queue: ${AWS_SQS_BOOKING_QUEUE_URL:booking-queue}
   s3:
     bucket: ${AWS_S3_POSTER_BUCKET:team5-dev-poster-bucket}
+  admin:
+    token: admin
 
 management:
   endpoints:

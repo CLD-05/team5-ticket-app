@@ -184,6 +184,13 @@
       font-weight: 900;
       color: #4f46e5;
       margin: 0 auto;
+      overflow: hidden;
+    }
+
+    .poster img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
     }
 
     .show-info {
@@ -462,10 +469,19 @@
           card.className = "rank-card";
           card.addEventListener("click", () => goDetail(show.showId));
 
+          let imgHtml = '<div class="poster">LIVE</div>';
+          if (show.imageUrl) {
+            let imgUrl = show.imageUrl;
+            if (imgUrl.includes("localstack:4566")) {
+              imgUrl = imgUrl.replace("localstack:4566", "localhost:4566");
+            }
+            imgHtml = `<div class="poster"><img src="${imgUrl}" alt="${show.title}"></div>`;
+          }
+
           card.innerHTML = `
             <div class="rank-number">${index + 1}</div>
 
-            <div class="poster">LIVE</div>
+            ${imgHtml}
 
             <div class="show-info">
               <div class="show-category">POPULAR</div>
@@ -497,7 +513,7 @@
     }
 
     function goDetail(showId) {
-      location.href = `/api/v1/shows/${showId}`;
+      location.href = `/shows/${showId}`;
     }
   </script>
 </body>
