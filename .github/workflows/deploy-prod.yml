@@ -1,10 +1,20 @@
 name: CI/CD - Deploy Prod
 
 on:
-  # 필요할 때 Actions 화면에서 수동 실행 가능
+  # 수동 승격 시 dev ECR에 이미 존재하는 image tag를 직접 지정
   workflow_dispatch:
+    inputs:
+      dev_image_tag:
+        description: "Promote할 dev image tag 예: dev-abc123"
+        required: true
+        type: string
+      prod_image_tag:
+        description: "Prod image tag. 비우면 dev tag 기준으로 prod-* 자동 생성"
+        required: false
+        type: string
 
   # develop merge 기준 prod promotion workflow 자동 실행
+  # 같은 commit으로 dev workflow가 만든 dev-${SHA} 이미지를 prod ECR로 승격
   push:
     branches:
       - develop
@@ -19,7 +29,8 @@ on:
 
 env:
   AWS_REGION: ap-northeast-2
-  ECR_REPOSITORY: team5-prod-app
+  DEV_ECR_REPOSITORY: team5-dev-app
+  PROD_ECR_REPOSITORY: team5-prod-app
   CONFIG_REPOSITORY: CLD-05/team5-ticket-config
   # 현재 팀 작업 흐름은 develop 기준
   # 프로젝트 최종 규칙에 맞출 때는 main으로 치환
@@ -28,38 +39,9 @@ env:
   CONFIG_KUSTOMIZATION_PATH: apps/ticket-app/overlays/prod/kustomization.yaml
 
 jobs:
-  ci:
-    name: Build and Test
+  promote-prod:
+    name: Promote Dev Image to Prod ECR, Update Config
     runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout app repository
-        uses: actions/checkout@v4
-
-      # PR/배포 전 공통 검증: Java 17 기준 테스트 및 패키징
-      - name: Set up Java 17
-        uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: "17"
-          cache: maven
-
-      # Dockerfile 문법/권장 규칙 확인
-      - name: Lint Dockerfile
-        uses: hadolint/hadolint-action@v3.1.0
-        with:
-          dockerfile: Dockerfile
-
-      - name: Run tests
-        run: mvn -B test
-
-      - name: Build jar
-        run: mvn -B package -DskipTests
-
-  deploy-prod:
-    name: Build Image, Push Prod ECR, Update Config
-    runs-on: ubuntu-latest
-    needs: ci
     # GitHub Environment prod 승인 게이트
     environment: prod
 
@@ -69,20 +51,42 @@ jobs:
       id-token: write
 
     steps:
-      - name: Checkout app repository
-        uses: actions/checkout@v4
-
-      # prod ECR immutable 정책 대응
-      # commit SHA 기반 고유 태그로 배포 이력 추적 및 롤백 기준 확보
-      - name: Set image tag
+      - name: Set promotion image tags
         id: vars
         run: |
-          SHORT_SHA="${GITHUB_SHA::7}"
-          IMAGE_TAG="prod-${SHORT_SHA}"
-          echo "image_tag=${IMAGE_TAG}" >> "$GITHUB_OUTPUT"
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            DEV_IMAGE_TAG="${{ inputs.dev_image_tag }}"
+            PROD_IMAGE_TAG="${{ inputs.prod_image_tag }}"
+          else
+            SHORT_SHA="${GITHUB_SHA::7}"
+            DEV_IMAGE_TAG="dev-${SHORT_SHA}"
+            PROD_IMAGE_TAG=""
+          fi
+
+          if [ -z "${DEV_IMAGE_TAG}" ]; then
+            echo "dev_image_tag is required."
+            exit 1
+          fi
+
+          if [[ "${DEV_IMAGE_TAG}" != dev-* ]]; then
+            echo "dev_image_tag must start with dev-. Current value: ${DEV_IMAGE_TAG}"
+            exit 1
+          fi
+
+          if [ -z "${PROD_IMAGE_TAG}" ]; then
+            PROD_IMAGE_TAG="${DEV_IMAGE_TAG/dev-/prod-}"
+          fi
+
+          if [[ "${PROD_IMAGE_TAG}" != prod-* ]]; then
+            echo "prod_image_tag must start with prod-. Current value: ${PROD_IMAGE_TAG}"
+            exit 1
+          fi
+
+          echo "dev_image_tag=${DEV_IMAGE_TAG}" >> "$GITHUB_OUTPUT"
+          echo "prod_image_tag=${PROD_IMAGE_TAG}" >> "$GITHUB_OUTPUT"
 
       # GitHub Environment prod에 AWS_PROD_ROLE_TO_ASSUME secret 등록 필요
-      # 예: arn:aws:iam::000000000000:role/team5-gha-prod-role
+      # 예: arn:aws:iam::194722398200:role/team5-gha-prod-role
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
@@ -93,23 +97,63 @@ jobs:
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v2
 
-      # prod는 latest 태그 미사용
-      # ECR immutable 정책과 배포 재현성을 위해 prod-${SHA} 태그만 사용
-      - name: Build Docker image
+      # prod에서는 Docker build를 다시 하지 않음
+      # dev ECR 이미지를 pull/tag/push하여 layer까지 prod ECR로 승격
+      - name: Promote dev image to prod ECR
         env:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-          IMAGE_TAG: ${{ steps.vars.outputs.image_tag }}
+          DEV_IMAGE_TAG: ${{ steps.vars.outputs.dev_image_tag }}
+          PROD_IMAGE_TAG: ${{ steps.vars.outputs.prod_image_tag }}
         run: |
-          docker build \
-            -t "${ECR_REGISTRY}/${ECR_REPOSITORY}:${IMAGE_TAG}" \
-            .
+          set -euo pipefail
 
-      - name: Push Docker image to ECR
-        env:
-          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-          IMAGE_TAG: ${{ steps.vars.outputs.image_tag }}
-        run: |
-          docker push "${ECR_REGISTRY}/${ECR_REPOSITORY}:${IMAGE_TAG}"
+          DEV_IMAGE="${ECR_REGISTRY}/${DEV_ECR_REPOSITORY}:${DEV_IMAGE_TAG}"
+          PROD_IMAGE="${ECR_REGISTRY}/${PROD_ECR_REPOSITORY}:${PROD_IMAGE_TAG}"
+
+          echo "Promote ${DEV_IMAGE} -> ${PROD_IMAGE}"
+
+          # push 이벤트에서는 dev workflow의 ECR push가 조금 늦게 끝날 수 있어 재시도
+          for attempt in $(seq 1 30); do
+            if aws ecr describe-images \
+              --repository-name "${DEV_ECR_REPOSITORY}" \
+              --image-ids imageTag="${DEV_IMAGE_TAG}" \
+              --query 'imageDetails[0].imageDigest' \
+              --output text > dev-image-digest.txt 2>/dev/null; then
+              break
+            fi
+
+            echo "Dev image not found yet. attempt=${attempt}/30"
+            sleep 10
+          done
+
+          DEV_IMAGE_DIGEST="$(cat dev-image-digest.txt)"
+          if [ -z "${DEV_IMAGE_DIGEST}" ] || [ "${DEV_IMAGE_DIGEST}" = "None" ]; then
+            echo "Dev image does not exist: ${DEV_ECR_REPOSITORY}:${DEV_IMAGE_TAG}"
+            exit 1
+          fi
+
+          echo "Dev image digest: ${DEV_IMAGE_DIGEST}"
+
+          if PROD_IMAGE_DIGEST="$(aws ecr describe-images \
+            --repository-name "${PROD_ECR_REPOSITORY}" \
+            --image-ids imageTag="${PROD_IMAGE_TAG}" \
+            --query 'imageDetails[0].imageDigest' \
+            --output text 2>/dev/null)"; then
+            if [ "${PROD_IMAGE_DIGEST}" = "${DEV_IMAGE_DIGEST}" ]; then
+              echo "Prod image already exists with the same digest. Skip push."
+              exit 0
+            fi
+
+            echo "Prod image tag already exists with a different digest."
+            echo "prod tag: ${PROD_IMAGE_TAG}"
+            echo "current prod digest: ${PROD_IMAGE_DIGEST}"
+            echo "dev digest: ${DEV_IMAGE_DIGEST}"
+            exit 1
+          fi
+
+          docker pull "${DEV_IMAGE}"
+          docker tag "${DEV_IMAGE}" "${PROD_IMAGE}"
+          docker push "${PROD_IMAGE}"
 
       - name: Checkout config repository
         uses: actions/checkout@v4
@@ -123,7 +167,7 @@ jobs:
       # config repo image tag만 변경하고 실제 배포는 ArgoCD가 GitOps 방식으로 수행
       - name: Update image tag in config repository
         env:
-          IMAGE_TAG: ${{ steps.vars.outputs.image_tag }}
+          IMAGE_TAG: ${{ steps.vars.outputs.prod_image_tag }}
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
         run: |
           cd config-repo
@@ -141,7 +185,7 @@ jobs:
           from pathlib import Path
 
           path = Path(os.environ["CONFIG_KUSTOMIZATION_PATH"])
-          image_name = f"{os.environ['ECR_REGISTRY']}/{os.environ['ECR_REPOSITORY']}"
+          image_name = f"{os.environ['ECR_REGISTRY']}/{os.environ['PROD_ECR_REPOSITORY']}"
           image_tag = os.environ["IMAGE_TAG"]
 
           lines = path.read_text().splitlines()
@@ -184,7 +228,7 @@ jobs:
       # 대상 브랜치(develop)에 직접 push하지 않고 PR 승인 후 ArgoCD가 반영
       - name: Commit and push promotion branch
         env:
-          IMAGE_TAG: ${{ steps.vars.outputs.image_tag }}
+          IMAGE_TAG: ${{ steps.vars.outputs.prod_image_tag }}
         run: |
           cd config-repo
           git config user.name "github-actions[bot]"
@@ -207,7 +251,8 @@ jobs:
       - name: Create config promotion pull request
         env:
           GH_TOKEN: ${{ secrets.CONFIG_REPO_TOKEN }}
-          IMAGE_TAG: ${{ steps.vars.outputs.image_tag }}
+          DEV_IMAGE_TAG: ${{ steps.vars.outputs.dev_image_tag }}
+          PROD_IMAGE_TAG: ${{ steps.vars.outputs.prod_image_tag }}
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
         run: |
           if [ -z "${promotion_branch:-}" ]; then
@@ -219,13 +264,14 @@ jobs:
             --repo "${CONFIG_REPOSITORY}" \
             --base "${CONFIG_BRANCH}" \
             --head "${promotion_branch}" \
-            --title "chore: promote prod ticket-service ${IMAGE_TAG}" \
+            --title "chore: promote prod ticket-service ${PROD_IMAGE_TAG}" \
             --body "$(cat <<BODY
           ## 작업 내용
 
-          prod ticket-service 이미지를 새 ECR 태그로 승격하는 PR.
+          dev에서 검증된 ticket-service 이미지를 prod ECR로 승격하고, prod GitOps image tag를 갱신하는 PR.
 
-          - Image: \`${ECR_REGISTRY}/${ECR_REPOSITORY}:${IMAGE_TAG}\`
+          - Source image: \`${ECR_REGISTRY}/${DEV_ECR_REPOSITORY}:${DEV_IMAGE_TAG}\`
+          - Promoted image: \`${ECR_REGISTRY}/${PROD_ECR_REPOSITORY}:${PROD_IMAGE_TAG}\`
           - Config path: \`${CONFIG_KUSTOMIZATION_PATH}\`
           - Base branch: \`${CONFIG_BRANCH}\`
 
@@ -234,8 +280,10 @@ jobs:
           이 PR이 merge되면 ArgoCD가 config repo 변경을 감지하여 prod Deployment에 반영.
 
           \`\`\`text
-          app workflow
-          -> ECR push
+          dev workflow
+          -> dev ECR image build/push
+          -> prod workflow
+          -> dev image를 prod ECR로 promotion
           -> config repo promotion PR 생성
           -> PR 승인/merge
           -> ArgoCD Auto Sync
