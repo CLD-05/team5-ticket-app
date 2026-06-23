@@ -524,6 +524,41 @@
             document.getElementById("showVenue").innerText = data.venue;
             document.getElementById("posterVenue").innerText = data.venue;
 
+            // 만약 imageUrl이 존재한다면, <img> 태그를 동적으로 생성하여 poster-card에 추가하고 기존 텍스트/아이콘을 숨깁니다.
+            if (data.imageUrl) {
+                const posterCard = document.querySelector(".poster-card");
+                
+                // 기존 <img> 태그가 있다면 제거 (중복 방지)
+                const existingImg = posterCard.querySelector(".poster-image");
+                if (existingImg) existingImg.remove();
+                
+                const img = document.createElement("img");
+                img.src = data.imageUrl;
+                img.className = "poster-image";
+                img.alt = data.title;
+                img.style.position = "absolute";
+                img.style.top = "0";
+                img.style.left = "0";
+                img.style.width = "100%";
+                img.style.height = "100%";
+                img.style.objectFit = "cover";
+                img.style.zIndex = "1";
+                
+                // badge를 제외한 다른 요소들 숨기기
+                const icon = posterCard.querySelector(".poster-icon");
+                if (icon) icon.style.display = "none";
+                const pTitle = document.getElementById("posterTitle");
+                if (pTitle) pTitle.style.display = "none";
+                const pVenue = document.getElementById("posterVenue");
+                if (pVenue) pVenue.style.display = "none";
+                
+                // badge의 z-index를 높여 이미지 위에 표시
+                const badge = document.getElementById("categoryBadge");
+                if (badge) badge.style.zIndex = "2";
+                
+                posterCard.appendChild(img);
+            }
+
             // 타임스탬프 설정
             bookingOpenAt = data.bookingOpenAt;
             bookingCloseAt = data.bookingCloseAt;

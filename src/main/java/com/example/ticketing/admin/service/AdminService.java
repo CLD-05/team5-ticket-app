@@ -8,6 +8,7 @@ import com.example.ticketing.show.entity.SeatGrade;
 import com.example.ticketing.show.entity.Show;
 import com.example.ticketing.show.repository.SeatGradeRepository;
 import com.example.ticketing.show.repository.ShowRepository;
+import com.example.ticketing.global.s3.S3Service;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.StringRedisTemplate;
@@ -32,6 +33,7 @@ public class AdminService {
     private final QueueService queueService;
     private final JdbcTemplate jdbcTemplate;
     private final StringRedisTemplate redisTemplate;
+    private final S3Service s3Service;
 
     @Transactional
     public Show createShow(CreateShowRequest request) {
@@ -176,5 +178,18 @@ public class AdminService {
             redisTemplate.delete("show:" + showId + ":performance_at");
         }
         log.info("Successfully updated booking time for showId: {}", showId);
+    }
+
+    @Transactional
+    public String updateShowImage(Long showId, org.springframework.web.multipart.MultipartFile file) {
+        Show show = showRepository.findById(showId)
+                .orElseThrow(() -> new com.example.ticketing.global.exception.NotFoundException("공연을 찾을 수 없습니다. ID: " + showId));
+        
+        String imageUrl = s3Service.uploadPoster(file);
+        show.setImageUrl(imageUrl);
+        showRepository.save(show);
+        
+        log.info("Successfully updated show image for showId: {}, url: {}", showId, imageUrl);
+        return imageUrl;
     }
 }

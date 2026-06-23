@@ -27,6 +27,9 @@ public class Show {
     @Column(nullable = false)
     private String venue;
 
+    @Column(name = "image_url")
+    private String imageUrl;
+
     @CreationTimestamp
     private LocalDateTime createdAt;
 

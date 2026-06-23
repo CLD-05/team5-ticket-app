@@ -245,15 +245,20 @@
 
 <body>
 
-  <header class="header">
-    <div class="container header-inner">
-      <div class="logo" style="cursor: pointer;" onclick="location.href='/'">Ticket Wave</div>
+	<header class="header">
+	  <div class="container header-inner">
+	    <div class="logo" style="cursor: pointer;" onclick="location.href='/'">Ticket Wave</div>
 
-      <div class="user-menu" id="userMenu">
-        <!-- JavaScript로 로그인 정보 동적 렌더링 -->
-      </div>
-    </div>
-  </header>
+	    <nav class="nav">
+	      <a href="/" style="color: #d1d5db; text-decoration: none; font-weight: bold;">공연 목록</a>
+	      <a href="/shows/popular" style="color: #d1d5db; text-decoration: none; font-weight: bold;">인기순위</a>
+	    </nav>
+
+	    <div class="user-menu" id="userMenu">
+	      <!-- JavaScript로 로그인 정보 동적 렌더링 -->
+	    </div>
+	  </div>
+	</header>
 
   <section class="hero">
     <div class="container hero-inner">

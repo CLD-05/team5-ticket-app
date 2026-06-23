@@ -62,6 +62,12 @@
             <artifactId>spring-cloud-aws-starter-sqs</artifactId>
         </dependency>
 
+        <!-- AWS S3 -->
+        <dependency>
+            <groupId>io.awspring.cloud</groupId>
+            <artifactId>spring-cloud-aws-starter-s3</artifactId>
+        </dependency>
+
         <!-- Security & JWT -->
         <dependency>
             <groupId>org.springframework.boot</groupId>

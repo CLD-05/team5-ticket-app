@@ -7,6 +7,7 @@ import com.example.ticketing.show.repository.ShowRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.CommandLineRunner;
+import org.springframework.context.annotation.Profile;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Component;
 
@@ -15,6 +16,7 @@ import java.util.List;
 
 @Slf4j
 @Component
+@Profile({"local", "docker", "db-init"})
 @RequiredArgsConstructor
 public class DummyDataInitializer implements CommandLineRunner {
 
@@ -28,24 +30,24 @@ public class DummyDataInitializer implements CommandLineRunner {
 
         // 18개 다채로운 더미 공연 정의 (임영웅, 싸이, 아이유 등)
         List<DummyShowInfo> dummyShows = Arrays.asList(
-            new DummyShowInfo("임영웅 콘서트 IM HERO", "서울월드컵경기장", "active"),
-            new DummyShowInfo("싸이 흠뻑쇼 SUMMERSWAG", "잠실종합운동장", "before"),
-            new DummyShowInfo("아이유 월드투어 HEREH", "서울월드컵경기장", "closed"),
-            new DummyShowInfo("뉴진스 팬미팅 Bunnies Camp", "도쿄돔", "active"),
-            new DummyShowInfo("방탄소년단 BTS 2026 Reunion", "주경기장", "active"),
-            new DummyShowInfo("에스파 단독 콘서트 SYNK", "고척스카이돔", "active"),
-            new DummyShowInfo("뮤지컬 시카고 CHICAGO", "디큐브아트센터", "active"),
-            new DummyShowInfo("지킬앤하이드 Jekyll & Hyde", "샤롯데씨어터", "active"),
-            new DummyShowInfo("레미제라블 Les Miserables", "블루스퀘어 신한카드홀", "active"),
-            new DummyShowInfo("오페라의 유령 PHANTOM", "드림씨어터", "active"),
-            new DummyShowInfo("2026 워터밤 서울 WATERBOMB", "특설무대", "active"),
-            new DummyShowInfo("서울재즈페스티벌 SEOUL JAZZ", "올림픽공원 잔디마당", "active"),
-            new DummyShowInfo("악뮤 10주년 콘서트 10VE", "경희대 평화의전당", "active"),
-            new DummyShowInfo("데이식스 DAY6 CONCERT", "고척스카이돔", "active"),
-            new DummyShowInfo("아이브 IVE SHOW WHAT I HAVE", "잠실실내체육관", "active"),
-            new DummyShowInfo("성시경 축가 콘서트", "연세대 노천극장", "active"),
-            new DummyShowInfo("조용필 55주년 콘서트", "서울월드컵경기장", "active"),
-            new DummyShowInfo("뮤지컬 엘리자벳 ELISABETH", "예술의전당 오페라극장", "active")
+            new DummyShowInfo("임영웅 콘서트 IM HERO", "서울월드컵경기장", "active", "https://images.unsplash.com/photo-1506157786151-b8491531f063?w=800"),
+            new DummyShowInfo("싸이 흠뻑쇼 SUMMERSWAG", "잠실종합운동장", "before", "https://images.unsplash.com/photo-1540039155733-5bb30b53aa14?w=800"),
+            new DummyShowInfo("아이유 월드투어 HEREH", "서울월드컵경기장", "closed", "https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=800"),
+            new DummyShowInfo("뉴진스 팬미팅 Bunnies Camp", "도쿄돔", "active", "https://images.unsplash.com/photo-1501386761578-eac5c94b800a?w=800"),
+            new DummyShowInfo("방탄소년단 BTS 2026 Reunion", "주경기장", "active", "https://images.unsplash.com/photo-1470225620780-dba8ba36b745?w=800"),
+            new DummyShowInfo("에스파 단독 콘서트 SYNK", "고척스카이돔", "active", "https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?w=800"),
+            new DummyShowInfo("뮤지컬 시카고 CHICAGO", "디큐브아트센터", "active", "https://images.unsplash.com/photo-1460723237483-7a6dc9d0b212?w=800"),
+            new DummyShowInfo("지킬앤하이드 Jekyll & Hyde", "샤롯데씨어터", "active", "https://images.unsplash.com/photo-1465847899084-d164df4dedc6?w=800"),
+            new DummyShowInfo("레미제라블 Les Miserables", "블루스퀘어 신한카드홀", "active", "https://images.unsplash.com/photo-1507676184212-d03ab07a01bf?w=800"),
+            new DummyShowInfo("오페라의 유령 PHANTOM", "드림씨어터", "active", "https://images.unsplash.com/photo-1518609878373-06d740f60d8b?w=800"),
+            new DummyShowInfo("2026 워터밤 서울 WATERBOMB", "특설무대", "active", "https://images.unsplash.com/photo-1482440308425-276ad0f28b19?w=800"),
+            new DummyShowInfo("서울재즈페스티벌 SEOUL JAZZ", "올림픽공원 잔디마당", "active", "https://images.unsplash.com/photo-1511192336575-5a79af67a629?w=800"),
+            new DummyShowInfo("악뮤 10주년 콘서트 10VE", "경희대 평화의전당", "active", "https://images.unsplash.com/photo-1459749411175-04bf5292ceea?w=800"),
+            new DummyShowInfo("데이식스 DAY6 CONCERT", "고척스카이돔", "active", "https://images.unsplash.com/photo-1524368535928-5b5e00ddc76b?w=800"),
+            new DummyShowInfo("아이브 IVE SHOW WHAT I HAVE", "잠실실내체육관", "active", "https://images.unsplash.com/photo-1498038432885-c6f3f1b912ee?w=800"),
+            new DummyShowInfo("성시경 축가 콘서트", "연세대 노천극장", "active", "https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?w=800"),
+            new DummyShowInfo("조용필 55주년 콘서트", "서울월드컵경기장", "active", "https://images.unsplash.com/photo-1470229722913-7c0e2dbbafd3?w=800"),
+            new DummyShowInfo("뮤지컬 엘리자벳 ELISABETH", "예술의전당 오페라극장", "active", "https://images.unsplash.com/photo-1503095391758-11200cf53674?w=800")
         );
 
         // 1. 기존 지저분한 임시 테스트 데이터 클렌징 (Test, Sihyun, Trot, 게임, ??? 등) + 기존 더미 데이터의 좌석구조 갱신을 위해 기존 더미도 삭제
@@ -94,6 +96,7 @@ public class DummyDataInitializer implements CommandLineRunner {
             Show show = Show.builder()
                     .title(info.title)
                     .venue(info.venue)
+                    .imageUrl(info.imageUrl)
                     .build();
             Show savedShow = showRepository.save(show);
             Long showId = savedShow.getShowId();
@@ -157,11 +160,13 @@ public class DummyDataInitializer implements CommandLineRunner {
         String title;
         String venue;
         String state;
+        String imageUrl;
 
-        DummyShowInfo(String title, String venue, String state) {
+        DummyShowInfo(String title, String venue, String state, String imageUrl) {
             this.title = title;
             this.venue = venue;
             this.state = state;
+            this.imageUrl = imageUrl;
         }
     }
 }

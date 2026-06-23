@@ -133,6 +133,20 @@ public class AdminController {
         return ResponseEntity.ok("Successfully updated booking time for show " + showId);
     }
 
+    @Operation(summary = "공연 포스터 이미지 업로드", description = "공연의 대표 포스터 이미지를 업로드하고 URL을 갱신합니다. (어드민 토큰 검증 필요)")
+    @PostMapping(value = "/shows/{showId}/image", consumes = org.springframework.http.MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<String> updateShowImage(
+            @Parameter(description = "어드민 인증 토큰", example = "admin-secret-key")
+            @RequestHeader(value = "X-Admin-Token", required = false) String token,
+            @Parameter(description = "공연 ID", example = "1")
+            @PathVariable Long showId,
+            @RequestParam("file") org.springframework.web.multipart.MultipartFile file
+    ) {
+        validateAdminToken(token);
+        String imageUrl = adminService.updateShowImage(showId, file);
+        return ResponseEntity.ok(imageUrl);
+    }
+
     @Operation(summary = "어드민 토큰 검증", description = "입력한 어드민 토큰 또는 OTP 코드의 유효성을 검증합니다.")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "검증 성공"),

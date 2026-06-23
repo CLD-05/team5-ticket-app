@@ -15,9 +15,16 @@ public class ShowPageController {
         return "index";
     }
 
+
     @GetMapping("/{showId}")
     public String showDetail(@PathVariable Long showId, Model model) {
         model.addAttribute("showId", showId);
         return "show-detail";
+    }
+
+    @GetMapping("/popular")
+    public String popularShowsPage() {
+        return "popular-shows";
+
     }
 }

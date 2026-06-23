@@ -1,0 +1,505 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+  <meta charset="UTF-8">
+  <title>Ticket Wave - 인기순위</title>
+
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: #f7f8fc;
+      color: #222;
+    }
+
+    .container {
+      max-width: 1180px;
+      width: 100%;
+      margin: 0 auto;
+      padding: 0 20px;
+      box-sizing: border-box;
+    }
+
+    .header {
+      background: #111827;
+      color: white;
+      padding: 18px 0;
+    }
+
+    .header-inner {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+
+    .logo {
+      font-size: 30px;
+      font-weight: 900;
+      color: #a78bfa;
+      cursor: pointer;
+    }
+
+    .nav {
+      display: flex;
+      gap: 28px;
+      font-size: 15px;
+      color: #d1d5db;
+    }
+
+    .nav a {
+      color: #d1d5db;
+      text-decoration: none;
+      font-weight: bold;
+    }
+
+    .nav a:hover {
+      color: #a78bfa;
+    }
+
+    .user-menu {
+      display: flex;
+      gap: 14px;
+      font-size: 14px;
+      color: #d1d5db;
+    }
+
+    .user-menu a {
+      color: #d1d5db;
+      text-decoration: none;
+      font-weight: bold;
+    }
+
+    .user-menu a:hover {
+      color: #a78bfa;
+    }
+
+    .hero {
+      background: linear-gradient(135deg, #4f46e5, #7c3aed);
+      color: white;
+      padding: 75px 0;
+    }
+
+    .hero-inner {
+      display: flex;
+      justify-content: center;
+      text-align: center;
+    }
+
+    .hero-text h1 {
+      font-size: 52px;
+      margin: 0 0 18px;
+      line-height: 1.15;
+    }
+
+    .hero-text p {
+      font-size: 18px;
+      color: #e5e7eb;
+      margin: 0;
+    }
+
+    .show-section {
+      margin-top: 50px;
+    }
+
+    .section-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 20px;
+      flex-wrap: wrap;
+    }
+
+    .section-title {
+      font-size: 26px;
+      font-weight: 900;
+      margin: 0;
+    }
+
+    .refresh-btn {
+      border: none;
+      background: #4f46e5;
+      color: white;
+      border-radius: 30px;
+      padding: 11px 24px;
+      font-weight: bold;
+      cursor: pointer;
+    }
+
+    .refresh-btn:hover {
+      background: #4338ca;
+    }
+
+    .ranking-list {
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+    }
+
+    .rank-card {
+      background: white;
+      border-radius: 22px;
+      overflow: hidden;
+      box-shadow: 0 8px 20px rgba(0, 0, 0, 0.07);
+      cursor: pointer;
+      transition: 0.2s;
+      display: grid;
+      grid-template-columns: 90px 150px 1fr 160px;
+      align-items: center;
+      min-height: 150px;
+    }
+
+    .rank-card:hover {
+      transform: translateY(-5px);
+    }
+
+    .rank-number {
+      height: 100%;
+      min-height: 150px;
+      background: linear-gradient(135deg, #4f46e5, #7c3aed);
+      color: white;
+      font-size: 36px;
+      font-weight: 900;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+
+    .poster {
+      width: 120px;
+      height: 120px;
+      border-radius: 20px;
+      background: linear-gradient(135deg, #ddd6fe, #c7d2fe);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      font-size: 26px;
+      font-weight: 900;
+      color: #4f46e5;
+      margin: 0 auto;
+    }
+
+    .show-info {
+      padding: 24px 14px;
+    }
+
+    .show-category {
+      display: inline-block;
+      background: #f3f4f6;
+      color: #6b7280;
+      padding: 5px 10px;
+      border-radius: 14px;
+      font-size: 12px;
+      font-weight: bold;
+      margin-bottom: 10px;
+    }
+
+    .show-title {
+      font-size: 22px;
+      font-weight: 900;
+      margin-bottom: 8px;
+    }
+
+    .show-place {
+      color: #6b7280;
+      font-size: 15px;
+    }
+
+    .show-date {
+      color: #6b7280;
+      font-size: 13px;
+      margin-top: 6px;
+    }
+
+    .show-price {
+      margin-top: 12px;
+      color: #4f46e5;
+      font-weight: 900;
+      font-size: 17px;
+    }
+
+    .detail-area {
+      padding-right: 24px;
+      text-align: right;
+    }
+
+    .detail-btn {
+      border: none;
+      background: #111827;
+      color: white;
+      border-radius: 30px;
+      padding: 12px 22px;
+      font-weight: bold;
+      cursor: pointer;
+    }
+
+    .detail-btn:hover {
+      background: #374151;
+    }
+
+    .empty {
+      background: white;
+      border-radius: 22px;
+      box-shadow: 0 8px 20px rgba(0, 0, 0, 0.07);
+      padding: 55px 20px;
+      text-align: center;
+      color: #6b7280;
+      line-height: 1.7;
+    }
+
+    .empty strong {
+      color: #222;
+      font-size: 20px;
+    }
+
+    .footer {
+      margin-top: 70px;
+      padding: 35px 0;
+      background: #111827;
+      color: #9ca3af;
+      text-align: center;
+    }
+
+    @media (max-width: 768px) {
+      .hero {
+        padding: 50px 0;
+      }
+
+      .hero-text h1 {
+        font-size: 34px;
+      }
+
+      .hero-text p {
+        font-size: 15px;
+      }
+
+      .section-title {
+        font-size: 22px;
+      }
+
+      .rank-card {
+        grid-template-columns: 70px 1fr;
+        grid-template-areas:
+          "rank info"
+          "rank button";
+        min-height: auto;
+      }
+
+      .rank-number {
+        grid-area: rank;
+        min-height: 180px;
+        font-size: 28px;
+      }
+
+      .poster {
+        display: none;
+      }
+
+      .show-info {
+        grid-area: info;
+        padding: 24px 18px 10px;
+      }
+
+      .detail-area {
+        grid-area: button;
+        text-align: left;
+        padding: 0 18px 24px;
+      }
+    }
+
+    @media (max-width: 480px) {
+      .logo {
+        font-size: 24px;
+      }
+
+      .hero-text h1 {
+        font-size: 28px;
+      }
+
+      .header-inner {
+        align-items: flex-start;
+      }
+
+      .nav {
+        width: 100%;
+        gap: 16px;
+      }
+
+      .user-menu {
+        width: 100%;
+      }
+    }
+  </style>
+</head>
+
+<body>
+
+  <header class="header">
+    <div class="container header-inner">
+      <div class="logo" onclick="location.href='/'">Ticket Wave</div>
+
+      <nav class="nav">
+        <a href="/">공연 목록</a>
+        <a href="/shows/popular">인기순위</a>
+      </nav>
+
+      <div class="user-menu" id="userMenu">
+        <!-- JavaScript로 로그인 정보 동적 렌더링 -->
+      </div>
+    </div>
+  </header>
+
+  <section class="hero">
+    <div class="container hero-inner">
+      <div class="hero-text">
+        <h1>
+          실시간 인기 공연<br>
+          TOP 10
+        </h1>
+        <p>사용자 조회 수를 기준으로 가장 많이 본 공연을 확인하세요.</p>
+      </div>
+    </div>
+  </section>
+
+  <main class="container">
+
+    <section class="show-section">
+      <div class="section-head">
+        <h2 class="section-title">현재 인기순위</h2>
+        <button class="refresh-btn" onclick="loadPopularShows()">새로고침</button>
+      </div>
+
+      <div class="ranking-list" id="popularShows">
+        <!-- 인기 공연 데이터 동적 삽입 -->
+      </div>
+    </section>
+
+  </main>
+
+  <footer class="footer">
+    Ticket Wave © 2026 공연 예매 플랫폼
+  </footer>
+
+  <script>
+    document.addEventListener("DOMContentLoaded", () => {
+      renderHeader();
+      loadPopularShows();
+    });
+
+    function getAccessToken() {
+      return localStorage.getItem("accessToken");
+    }
+
+    function renderHeader() {
+      const userMenu = document.getElementById("userMenu");
+      const token = getAccessToken();
+
+      if (token) {
+        userMenu.innerHTML = `
+          <a href="/mypage">마이페이지</a>
+          <a href="#" id="logoutBtn">로그아웃</a>
+        `;
+
+        document.getElementById("logoutBtn").addEventListener("click", (e) => {
+          e.preventDefault();
+          localStorage.clear();
+          location.reload();
+        });
+      } else {
+        userMenu.innerHTML = `
+          <a href="/login">로그인</a>
+          <a href="/signup">회원가입</a>
+        `;
+      }
+    }
+
+    async function loadPopularShows() {
+      const container = document.getElementById("popularShows");
+
+      container.innerHTML = `
+        <div class="empty">
+          인기 공연 데이터를 불러오는 중입니다...
+        </div>
+      `;
+
+      try {
+        const response = await fetch("/api/v1/shows/popular");
+
+        if (!response.ok) {
+          container.innerHTML = `
+            <div class="empty">
+              <strong>인기 공연 데이터를 불러오지 못했습니다.</strong><br>
+              잠시 후 다시 시도해주세요. (${response.status})
+            </div>
+          `;
+          return;
+        }
+
+        const shows = await response.json();
+
+        if (!shows || shows.length === 0) {
+          container.innerHTML = `
+            <div class="empty">
+              <strong>아직 인기 공연 데이터가 없습니다.</strong><br>
+              공연 상세 API를 몇 번 호출하면 순위가 쌓입니다.<br>
+              예: /api/v1/shows/1 을 몇 번 호출한 뒤 다시 확인해보세요.
+            </div>
+          `;
+          return;
+        }
+
+        container.innerHTML = "";
+
+        shows.forEach((show, index) => {
+          const card = document.createElement("div");
+          card.className = "rank-card";
+          card.addEventListener("click", () => goDetail(show.showId));
+
+          card.innerHTML = `
+            <div class="rank-number">${index + 1}</div>
+
+            <div class="poster">LIVE</div>
+
+            <div class="show-info">
+              <div class="show-category">POPULAR</div>
+              <div class="show-title">${show.title ?? "제목 없음"}</div>
+              <div class="show-place">${show.venue ?? "장소 정보 없음"}</div>
+              <div class="show-date">${show.startDate ?? "2026.07.01"} ${show.endDate ? "~ " + show.endDate : ""}</div>
+              <div class="show-price">150,000원 ~</div>
+            </div>
+
+            <div class="detail-area">
+              <button class="detail-btn" onclick="event.stopPropagation(); goDetail(${show.showId})">
+                상세 보기
+              </button>
+            </div>
+          `;
+
+          container.appendChild(card);
+        });
+
+      } catch (error) {
+        container.innerHTML = `
+          <div class="empty">
+            <strong>서버 연결에 실패했습니다.</strong><br>
+            Spring Boot 서버가 실행 중인지 확인해주세요.
+          </div>
+        `;
+        console.error(error);
+      }
+    }
+
+    function goDetail(showId) {
+      location.href = `/api/v1/shows/${showId}`;
+    }
+  </script>
+</body>
+
+</html>

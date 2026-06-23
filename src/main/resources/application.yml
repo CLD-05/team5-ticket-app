@@ -2,7 +2,7 @@ spring:
   datasource:
     url: jdbc:mysql://localhost:3307/ticketing?useUnicode=true&allowPublicKeyRetrieval=true&useSSL=false&serverTimezone=Asia/Seoul&characterEncoding=UTF-8
     username: root
-    password: password
+    password: 1234
     driver-class-name: com.mysql.cj.jdbc.Driver
 
   jpa:
@@ -37,6 +37,8 @@ jwt:
 app:
   sqs:
     booking-queue: ${AWS_SQS_BOOKING_QUEUE_URL:booking-queue}
+  s3:
+    bucket: ${AWS_S3_POSTER_BUCKET:team5-dev-poster-bucket}
 
 management:
   endpoints:
