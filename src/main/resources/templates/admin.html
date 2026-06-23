@@ -658,7 +658,7 @@
             <h3>Admin Authorization</h3>
             <p>보안 통제를 위해 어드민 접속 키(Admin Secret Key) 또는 구글 OTP 번호를 입력하세요.</p>
             <div class="form-group">
-                <input type="password" id="modalTokenInput" class="form-control" placeholder="접속 키 또는 OTP 6자리 입력" value="admin-secret-key">
+                <input type="password" id="modalTokenInput" class="form-control" placeholder="접속 키 또는 OTP 6자리 입력">
             </div>
             <button class="btn" onclick="authorizeToken()">인증 및 잠금해제</button>
             <div style="margin-top: 25px; padding-top: 20px; border-top: 1px solid rgba(255,255,255,0.08); font-size: 0.8rem; color: var(--text-muted);">
@@ -1056,15 +1056,35 @@
         });
 
         function authorizeToken() {
-            const input = document.getElementById("modalTokenInput").value;
-            if (input) {
-                sessionStorage.setItem("adminToken", input);
-                document.getElementById("headerTokenInput").value = input;
+            const input = document.getElementById("modalTokenInput").value.trim();
+            if (!input) {
+                alert("인증 키 또는 OTP 코드를 입력하세요.");
+                return;
+            }
+
+            fetch("/api/v1/admin/validate", {
+                method: "POST",
+                headers: {
+                    "X-Admin-Token": input
+                }
+            })
+            .then(res => {
+                if (!res.ok) throw new Error("인증 실패 (올바르지 않은 키 또는 만료된 OTP입니다)");
+                return res.text();
+            })
+            .then(sessionToken => {
+                const tokenToSave = sessionToken ? sessionToken : input;
+                sessionStorage.setItem("adminToken", tokenToSave);
+                document.getElementById("headerTokenInput").value = tokenToSave;
                 document.getElementById("lockModal").classList.add("hidden");
                 refreshShowDropdowns();
                 loadDashboardStats();
-                printLog("🔑 어드민 세션 잠금 해제 및 데이터 조회에 성공했습니다.", "info");
-            }
+                printLog("🔑 OTP/어드민 인증에 성공하여 영구 어드민 세션이 활성화되었습니다.", "info");
+            })
+            .catch(err => {
+                alert(err.message);
+                printLog(`❌ 인증 실패: ${err.message}`, "error");
+            });
         }
 
         function updateTokenFromHeader() {

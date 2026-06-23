@@ -147,17 +147,17 @@ public class AdminController {
         return ResponseEntity.ok(imageUrl);
     }
 
-    @Operation(summary = "어드민 토큰 검증", description = "입력한 어드민 토큰 또는 OTP 코드의 유효성을 검증합니다.")
+    @Operation(summary = "어드민 토큰 검증", description = "입력한 어드민 토큰 또는 OTP 코드의 유효성을 검증하고, 성공 시 세션 유지용 어드민 토큰을 반환합니다.")
     @ApiResponses({
-            @ApiResponse(responseCode = "200", description = "검증 성공"),
+            @ApiResponse(responseCode = "200", description = "검증 성공", content = @Content(schema = @Schema(type = "string"))),
             @ApiResponse(responseCode = "403", description = "검증 실패 (권한 없음)", content = @Content)
     })
     @PostMapping("/validate")
-    public ResponseEntity<Void> validateTokenOnly(
+    public ResponseEntity<String> validateTokenOnly(
             @Parameter(description = "어드민 인증 토큰 또는 OTP 번호", example = "admin-secret-key")
             @RequestHeader(value = "X-Admin-Token", required = false) String token
     ) {
         validateAdminToken(token);
-        return ResponseEntity.ok().build();
+        return ResponseEntity.ok(adminToken);
     }
 }
