@@ -353,14 +353,14 @@
     /* Responsive */
     @media (max-width: 900px) {
       .detail-grid {
-        grid-template-columns: 1fr;
-        gap: 32px;
-      }
+	    display: grid;
+	    grid-template-columns: 340px 1fr; 
+	    gap: 48px;
+	    align-items: start;
+	  }
       .poster-section {
         position: relative;
         top: 0;
-        max-width: 400px;
-        margin: 0 auto;
       }
       .show-main-title {
         font-size: 32px;
@@ -409,44 +409,29 @@
 			  <th>예매 기간</th>
 			  <td id="bookingPeriodVal" style="font-weight: 700;">Loading...</td>
 			</tr>
+			<tr>
+              <td colspan="2" style="padding: 15px 0;"><div class="divider"></div></td>
+            </tr>
+			<tr>
+		      <th style="vertical-align: top; padding-top: 12px;">가격</th>
+		      <td id="priceListVal" style="padding: 12px 10px; line-height: 1.6;">
+		        <span style="color: #64748b;">좌석 정보를 불러오는 중입니다...</span>
+		      </td>
+		    </tr>
           </tbody>
         </table>
+		</div> </div> <div class="card action-panel" style="margin-top: 40px; width: 100%;">
+	      <div class="countdown-container hidden" id="countdownBox">
+	        <div class="countdown-title">예매 오픈 전 입니다.</div>
+	        <div class="countdown-timer" id="timerDisplay">00:00:00</div>
+	      </div>
 
-        <div class="divider"></div>
-
-        <div class="card">
-          <h3 class="card-title">💺 좌석 등급 및 잔여 현황</h3>
-          <div style="overflow-x: auto;">
-            <table class="seat-table">
-              <thead>
-                <tr>
-                  <th>좌석 등급</th>
-                  <th>가격</th>
-                  <th>전체 좌석</th>
-                  <th>잔여 좌석</th>
-                </tr>
-              </thead>
-              <tbody id="seatTableBody">
-                <tr>
-                  <td colspan="4" style="text-align: center; color: #64748b;">좌석 정보를 불러오는 중입니다...</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
-
-        <div class="card action-panel">
-          <div class="countdown-container hidden" id="countdownBox">
-            <div class="countdown-title">📢 예매 오픈 전입니다.</div>
-            <div class="countdown-timer" id="timerDisplay">00:00:00</div>
-          </div>
-
-          <button class="book-btn btn-disabled" id="bookBtn" disabled>
-            상태 조회 중...
-          </button>
+          <div style="display: flow-root; width: 100%;">
+        	<button class="book-btn btn-disabled" id="bookBtn" disabled>
+            	상태 조회 중...
+          	</button>
         </div>
       </div>
-    </div>
   </main>
 
   <footer class="footer">
@@ -587,51 +572,84 @@
     }
 
     async function fetchSeatDetails() {
-        const tableBody = document.getElementById("seatTableBody");
+        const priceListVal = document.getElementById("priceListVal");
+        if (!priceListVal) return;
+
         try {
-            const response = await fetch(`/api/v1/shows/${showId}/seats`);
-            if (!response.ok) {
-                tableBody.innerHTML = `<tr><td colspan="4" style="text-align: center; color: #ef4444;">좌석 정보를 불러오지 못했습니다.</td></tr>`;
-                return;
-            }
-            const data = await response.json();
-            const grades = data.seatGrades;
-
-            if (!grades || grades.length === 0) {
-                tableBody.innerHTML = `<tr><td colspan="4" style="text-align: center; color: #64748b;">등록된 좌석 등급이 없습니다.</td></tr>`;
-                return;
-            }
-
-            tableBody.innerHTML = "";
-            grades.forEach(grade => {
-                const tr = document.createElement("tr");
-                
-                // 가격 포맷팅
-                const priceFormatted = grade.price.toLocaleString('ko-KR') + "원";
-                
-                // 좌석 등급별 뱃지 스타일 매핑
-                const lowerName = grade.gradeName.toLowerCase();
-                let badgeClass = "badge-a";
-                if (lowerName.includes("vip")) badgeClass = "badge-vip";
-                else if (lowerName.includes("r")) badgeClass = "badge-r";
-                else if (lowerName.includes("s")) badgeClass = "badge-s";
-
-                const isSoldOut = grade.remainingSeats <= 0;
-                const remainingHtml = isSoldOut 
-                    ? `<span class="sold-out">매진</span>` 
-                    : `<span class="remaining-count">${grade.remainingSeats}석</span>`;
-
-                tr.innerHTML = `
-                    <td><span class="seat-grade-badge ${badgeClass}">${grade.gradeName}</span></td>
-                    <td>${priceFormatted}</td>
-                    <td>${grade.totalSeats}석</td>
-                    <td>${remainingHtml}</td>
-                `;
-                tableBody.appendChild(tr);
+            const token = getAccessToken();
+            const response = await fetch(`/api/v1/performances/${showId}/seats`, {
+                headers: {
+                    "Authorization": token ? `Bearer ${token}` : ""
+                }
             });
+            
+            if (!response.ok) {
+                priceListVal.innerHTML = `<span>정보를 불러오지 못했습니다. (에러 코드: ${response.status})</span>`;
+                return;
+            }
+            
+            const seats = await response.json();
+            
+            if (!seats || seats.length === 0) {
+                priceListVal.innerHTML = `<span style="color: #64748b;">등록된 좌석 정보가 없습니다.</span>`;
+                return;
+            }
+
+            const agg = {};
+            seats.forEach(seat => {
+                const parts = (seat.seatNumber || '').split('-');
+                const prefix = (parts[0] || '').toUpperCase();
+                let gradeName = prefix;
+                if (prefix === 'V') gradeName = 'VIP';
+
+                if (!agg[gradeName]) {
+                    agg[gradeName] = { price: seat.price };
+                }
+            });
+
+            priceListVal.innerHTML = "";
+            Object.entries(agg).forEach(([gradeName, info]) => {
+                const priceFormatted = info.price.toLocaleString('ko-KR') + "원";
+                const priceLine = document.createElement("div");
+                priceLine.style.display = "block";
+                priceLine.style.marginBottom = "8px";
+                priceLine.style.fontSize = "15px";
+                
+                priceLine.innerHTML = `
+                    <span style="display: inline-block; width: 60px; font-weight: 700; color: #222;">${gradeName}석</span>
+                    <span style="font-weight: 900; color: #111111;">${priceFormatted}</span>
+                `;
+                priceListVal.appendChild(priceLine);
+            });
+
         } catch (e) {
-            tableBody.innerHTML = `<tr><td colspan="4" style="text-align: center; color: #ef4444;">서버 오류로 인해 좌석 정보를 조회할 수 없습니다.</td></tr>`;
+            console.error(e);
+            priceListVal.innerHTML = `<span>정보를 불러오는 중 오류가 발생했습니다.</span>`;
         }
+    }
+
+    function renderPriceList(grades) {
+        const priceListVal = document.getElementById("priceListVal");
+        if (!grades || grades.length === 0) {
+            priceListVal.innerHTML = `<span style="color: #64748b;">등록된 정보가 없습니다.</span>`;
+            return;
+        }
+
+        priceListVal.innerHTML = "";
+        grades.forEach((grade, index) => {
+            const priceFormatted = grade.price.toLocaleString('ko-KR') + "원";
+            const priceLine = document.createElement("div");
+            
+            priceLine.style.display = "block";
+            priceLine.style.marginBottom = index === grades.length - 1 ? "0" : "8px";
+            priceLine.style.fontSize = "15px";
+            
+            priceLine.innerHTML = `
+                <span style="display: inline-block; width: 60px; font-weight: 700; color: #222;">${grade.gradeName}석</span>
+                <span style="font-weight: 900; color: #111111;">${priceFormatted}</span>
+            `;
+            priceListVal.appendChild(priceLine);
+        });
     }
 
     function initBookingStatus() {
