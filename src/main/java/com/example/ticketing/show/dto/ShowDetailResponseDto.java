@@ -19,11 +19,23 @@ public class ShowDetailResponseDto {
     @Schema(description = "공연장", example = "KSPO DOME")
     private String venue;
 
-    public static ShowDetailResponseDto from(Show show) {
+    @Schema(description = "예매 오픈 시간 (Unix Timestamp)", example = "1782120000")
+    private Long bookingOpenAt;
+
+    @Schema(description = "예매 마감 시간 (Unix Timestamp)", example = "1782123600")
+    private Long bookingCloseAt;
+
+    @Schema(description = "공연 시작 시간 (Unix Timestamp)", example = "1782130000")
+    private Long performanceAt;
+
+    public static ShowDetailResponseDto from(Show show, Long bookingOpenAt, Long bookingCloseAt, Long performanceAt) {
         return ShowDetailResponseDto.builder()
                 .showId(show.getShowId())
                 .title(show.getTitle())
                 .venue(show.getVenue())
+                .bookingOpenAt(bookingOpenAt)
+                .bookingCloseAt(bookingCloseAt)
+                .performanceAt(performanceAt)
                 .build();
     }
 }

@@ -345,7 +345,7 @@
             shows.forEach(show => {
                 const card = document.createElement("div");
                 card.className = "show-card";
-                card.addEventListener("click", () => goToBooking(show.showId));
+                card.addEventListener("click", () => window.location.href = `/shows/${show.showId}`);
                 
                 card.innerHTML = `
                     <div class="poster">LIVE</div>

@@ -10,6 +10,7 @@ import com.example.ticketing.show.repository.SeatGradeRepository;
 import com.example.ticketing.show.repository.ShowRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.jdbc.core.BatchPreparedStatementSetter;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
@@ -30,6 +31,7 @@ public class AdminService {
     private final SeatGradeRepository seatGradeRepository;
     private final QueueService queueService;
     private final JdbcTemplate jdbcTemplate;
+    private final StringRedisTemplate redisTemplate;
 
     @Transactional
     public Show createShow(CreateShowRequest request) {
@@ -38,6 +40,19 @@ public class AdminService {
                 .venue(request.getVenue())
                 .build();
         Show savedShow = showRepository.save(show);
+        
+        // Save metadata to Redis if present
+        Long showId = savedShow.getShowId();
+        if (request.getBookingOpenAt() != null) {
+            redisTemplate.opsForValue().set("show:" + showId + ":booking_open_at", String.valueOf(request.getBookingOpenAt()));
+        }
+        if (request.getBookingCloseAt() != null) {
+            redisTemplate.opsForValue().set("show:" + showId + ":booking_close_at", String.valueOf(request.getBookingCloseAt()));
+        }
+        if (request.getPerformanceAt() != null) {
+            redisTemplate.opsForValue().set("show:" + showId + ":performance_at", String.valueOf(request.getPerformanceAt()));
+        }
+
         log.info("Successfully created show: id={}, title={}", savedShow.getShowId(), savedShow.getTitle());
         return savedShow;
     }
@@ -136,5 +151,30 @@ public class AdminService {
         } else {
             queueService.clearAllQueues();
         }
+    }
+
+    @Transactional
+    public void updateBookingTime(Long showId, CreateShowRequest request) {
+        Show show = showRepository.findById(showId)
+                .orElseThrow(() -> new NotFoundException("공연을 찾을 수 없습니다. ID: " + showId));
+
+        if (request.getBookingOpenAt() != null) {
+            redisTemplate.opsForValue().set("show:" + showId + ":booking_open_at", String.valueOf(request.getBookingOpenAt()));
+        } else {
+            redisTemplate.delete("show:" + showId + ":booking_open_at");
+        }
+
+        if (request.getBookingCloseAt() != null) {
+            redisTemplate.opsForValue().set("show:" + showId + ":booking_close_at", String.valueOf(request.getBookingCloseAt()));
+        } else {
+            redisTemplate.delete("show:" + showId + ":booking_close_at");
+        }
+
+        if (request.getPerformanceAt() != null) {
+            redisTemplate.opsForValue().set("show:" + showId + ":performance_at", String.valueOf(request.getPerformanceAt()));
+        } else {
+            redisTemplate.delete("show:" + showId + ":performance_at");
+        }
+        log.info("Successfully updated booking time for showId: {}", showId);
     }
 }

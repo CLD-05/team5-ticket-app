@@ -17,4 +17,13 @@ public class CreateShowRequest {
 
     @Schema(description = "공연장", example = "서울월드컵경기장")
     private String venue;
+
+    @Schema(description = "예매 오픈 시각 (Unix Timestamp)", example = "1782120000")
+    private Long bookingOpenAt;
+
+    @Schema(description = "예매 마감 시각 (Unix Timestamp)", example = "1782123600")
+    private Long bookingCloseAt;
+
+    @Schema(description = "공연 실제 시작 시각 (Unix Timestamp)", example = "1782130000")
+    private Long performanceAt;
 }
