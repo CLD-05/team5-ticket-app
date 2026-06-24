@@ -576,47 +576,31 @@
         if (!priceListVal) return;
 
         try {
-            const token = getAccessToken();
-            const response = await fetch(`/api/v1/performances/${showId}/seats`, {
-                headers: {
-                    "Authorization": token ? `Bearer ${token}` : ""
-                }
-            });
+            const response = await fetch(`/api/v1/shows/${showId}/seats`);
             
             if (!response.ok) {
                 priceListVal.innerHTML = `<span>정보를 불러오지 못했습니다. (에러 코드: ${response.status})</span>`;
                 return;
             }
             
-            const seats = await response.json();
+            const data = await response.json();
+            const grades = data.seatGrades || [];
             
-            if (!seats || seats.length === 0) {
+            if (grades.length === 0) {
                 priceListVal.innerHTML = `<span style="color: #64748b;">등록된 좌석 정보가 없습니다.</span>`;
                 return;
             }
 
-            const agg = {};
-            seats.forEach(seat => {
-                const parts = (seat.seatNumber || '').split('-');
-                const prefix = (parts[0] || '').toUpperCase();
-                let gradeName = prefix;
-                if (prefix === 'V') gradeName = 'VIP';
-
-                if (!agg[gradeName]) {
-                    agg[gradeName] = { price: seat.price };
-                }
-            });
-
             priceListVal.innerHTML = "";
-            Object.entries(agg).forEach(([gradeName, info]) => {
-                const priceFormatted = info.price.toLocaleString('ko-KR') + "원";
+            grades.forEach(grade => {
+                const priceFormatted = grade.price.toLocaleString('ko-KR') + "원";
                 const priceLine = document.createElement("div");
                 priceLine.style.display = "block";
                 priceLine.style.marginBottom = "8px";
                 priceLine.style.fontSize = "15px";
                 
                 priceLine.innerHTML = `
-                    <span style="display: inline-block; width: 60px; font-weight: 700; color: #222;">${gradeName}석</span>
+                    <span style="display: inline-block; width: 60px; font-weight: 700; color: #222;">${grade.gradeName}석</span>
                     <span style="font-weight: 900; color: #111111;">${priceFormatted}</span>
                 `;
                 priceListVal.appendChild(priceLine);
