@@ -9,8 +9,11 @@
             background-color: #f4f4f4;
             margin: 0;
             padding: 20px;
+            min-height: 100vh;
             display: flex;
             justify-content: center;
+            align-items: center;
+            box-sizing: border-box;
             user-select: none;
         }
         .window-wrapper {
@@ -332,10 +335,15 @@
 
         function authHeaders() {
             const token = getAccessToken();
-            return {
+            const headers = {
                 "Content-Type": "application/json",
                 "Authorization": token ? `Bearer ${token}` : ""
             };
+            const queueToken = sessionStorage.getItem("queueToken");
+            if (queueToken) {
+                headers["X-Queue-Token"] = queueToken;
+            }
+            return headers;
         }
 
         // 좌석번호 형식: {등급}-{구역}-{번호}  예) V-A-1, R-B-15, S-C-40
@@ -365,7 +373,7 @@
                     headers: authHeaders()
                 });
                 if (!response.ok) {
-                    if (response.status === 400 || response.status === 401) {
+                    if (response.status === 400 || response.status === 401 || response.status === 403) {
                         const errData = await response.json().catch(() => ({}));
                         alert(errData.message || "대기열 인증이 만료되었거나 유효하지 않습니다. 대기열로 이동합니다.");
                         window.location.href = `/shows/${performanceId}/queue`;
