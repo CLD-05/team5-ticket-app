@@ -551,6 +551,9 @@
                 img.style.height = "100%";
                 img.style.objectFit = "cover";
                 img.style.zIndex = "1";
+                img.onerror = function() {
+                    this.src = "/no-image.png";
+                };
                 
                 // badge를 제외한 다른 요소들 숨기기
                 const icon = posterCard.querySelector(".poster-icon");
@@ -564,6 +567,21 @@
                 const badge = document.getElementById("categoryBadge");
                 if (badge) badge.style.zIndex = "2";
                 
+                posterCard.appendChild(img);
+            }
+            else {
+                const posterCard = document.querySelector(".poster-card");
+                const img = document.createElement("img");
+                img.src = "/no-image.png";
+                img.className = "poster-image";
+                img.alt = "No image";
+                img.style.position = "absolute";
+                img.style.top = "0";
+                img.style.left = "0";
+                img.style.width = "100%";
+                img.style.height = "100%";
+                img.style.objectFit = "cover";
+                img.style.zIndex = "1";
                 posterCard.appendChild(img);
             }
 
