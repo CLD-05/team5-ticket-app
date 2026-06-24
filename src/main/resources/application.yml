@@ -32,8 +32,8 @@ spring:
         static: ap-northeast-2
 
 jwt:
-  secret: c2VjcmV0LWtleS1wbGFjZWhvbGRlci1hdC1sZWFzdC0zMi1jaGFyYWN0ZXJzLWxvbmc=
-  expiration-ms: 3600000
+  secret: ${JWT_SECRET}
+  expiration-ms: ${JWT_EXPIRATION_MS:3600000}
 
 app:
   sqs:
