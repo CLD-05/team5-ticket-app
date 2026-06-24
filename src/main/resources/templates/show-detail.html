@@ -281,20 +281,29 @@
 
     /* Booking section / Action panel */
     .action-panel {
-      background: #ffffff;
-      border: 1px solid #e5e7eb;
+      background: transparent; 
+      border: none;          
+      box-shadow: none;   
+      width: 100%;
+      margin-top: 40px;
     }
 
     .countdown-container {
-      background: #f3f4f6;
-      border-radius: 6px;
-      padding: 14px;
+      background: #ffffff;    
+      border: 1px solid #e5e7eb; 
+      border-radius: 8px;
+      padding: 35px 20px;
       text-align: center;
-      margin-bottom: 16px;
-      border: 1px solid #e5e7eb;
-      font-size: 14px;
+      margin-bottom: 24px;
+      font-size: 15px;
       font-weight: 700;
-      color: #4b5563;
+      color: #333333;
+      width: 100%;
+      box-sizing: border-box;
+      display: flex;                      
+      justify-content: center;
+      align-items: center;
+      gap: 6px;
     }
 
     .countdown-title {
@@ -310,8 +319,9 @@
     }
 
     .book-btn {
-      width: 100%;
-      height: 54px;
+      width: auto;             
+      min-width: 240px;                   
+      height: 52px;                      
       border: 0;
       border-radius: 6px;
       font-size: 16px;
@@ -323,11 +333,12 @@
       justify-content: center;
       gap: 8px;
       text-decoration: none;
+      float: right;                      
     }
 
     /* Button variants */
     .btn-active {
-      background: #222222; /* 티켓오픈 시 강렬한 블랙 버튼 */
+      background: #222222; 
       color: white;
     }
 
@@ -336,7 +347,7 @@
     }
 
     .btn-disabled {
-      background: #e5e7eb; /* 판매예정용 그레이 버튼 */
+      background: #e5e7eb; 
       color: #9ca3af;
       cursor: not-allowed;
     }
@@ -647,14 +658,17 @@
         const bookBtn = document.getElementById("bookBtn");
         const countdownBox = document.getElementById("countdownBox");
         const timerDisplay = document.getElementById("timerDisplay");
+        const countdownTitle = countdownBox ? countdownBox.querySelector(".countdown-title") : null;
 
         const now = Math.floor(Date.now() / 1000);
 
         // 1. 아직 오픈 전인 경우
         if (bookingOpenAt && now < bookingOpenAt) {
             countdownBox.classList.remove("hidden");
-            const diff = bookingOpenAt - now;
+            if (countdownTitle) countdownTitle.innerText = "예매 오픈 전 입니다. ";
+            timerDisplay.style.display = "inline-block"; 
             
+            const diff = bookingOpenAt - now;
             const hours = Math.floor(diff / 3600);
             const minutes = Math.floor((diff % 3600) / 60);
             const seconds = diff % 60;
@@ -663,24 +677,27 @@
                 `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
 
             bookBtn.className = "book-btn btn-disabled";
-            bookBtn.innerText = "예매 오픈 대기 중";
+            bookBtn.innerText = "판매예정";
             bookBtn.disabled = true;
         } 
         // 2. 예매 진행 중인 경우 (오픈 후 ~ 마감 전)
         else if (bookingOpenAt && (!bookingCloseAt || now < bookingCloseAt)) {
             countdownBox.classList.add("hidden");
             bookBtn.className = "book-btn btn-active";
-            bookBtn.innerText = "🎟️ 예매하기 (대기열 진입)";
+            bookBtn.innerText = "예매하기";
             bookBtn.disabled = false;
             
-            // 클릭 리스너 설정 (최초 1회 설정 또는 기설정 갱신)
             bookBtn.onclick = () => tryBooking();
         } 
-        // 3. 예매 마감된 경우
+        // 3. 예매 마감된 경우 
         else {
-            countdownBox.classList.add("hidden");
+            countdownBox.classList.remove("hidden"); 
+            if (countdownTitle) countdownTitle.innerText = "예매가 마감되었습니다."; 
+            timerDisplay.style.display = "none"; 
+            
+            bookBtn.parentElement.style.display = "flow-root";
             bookBtn.className = "book-btn btn-disabled";
-            bookBtn.innerText = "🚫 예매 마감";
+            bookBtn.innerText = "판매종료";
             bookBtn.disabled = true;
             if (timerInterval) clearInterval(timerInterval);
         }
@@ -696,7 +713,7 @@
 
         const bookBtn = document.getElementById("bookBtn");
         bookBtn.disabled = true;
-        bookBtn.innerText = "대기열 상태를 확인하고 있습니다...";
+        bookBtn.innerText = "예매하기";
 
         try {
             const response = await fetch(`/api/v1/shows/${showId}/queue/enter`, {
@@ -724,7 +741,7 @@
             if (!response.ok) {
                 alert("대기열 서버에 일시적인 장애가 있습니다. 잠시 후 다시 시도해 주세요.");
                 bookBtn.disabled = false;
-                bookBtn.innerText = "🎟️ 예매하기 (대기열 진입)";
+                bookBtn.innerText = "예매하기";
                 return;
             }
 
@@ -745,7 +762,7 @@
         } catch (error) {
             alert("서버 연결에 실패했습니다. 잠시 후 다시 시도해주세요.");
             bookBtn.disabled = false;
-            bookBtn.innerText = "🎟️ 예매하기 (대기열 진입)";
+            bookBtn.innerText = "예매하기";
         }
     }
   </script>
