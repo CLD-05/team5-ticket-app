@@ -555,6 +555,9 @@
                 img.style.height = "100%";
                 img.style.objectFit = "cover";
                 img.style.zIndex = "1";
+                img.onerror = function() {
+                    this.src = "/no-image.png";
+                };
                 
                 // badge를 제외한 다른 요소들 숨기기
                 const icon = posterCard.querySelector(".poster-icon");
