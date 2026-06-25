@@ -8,6 +8,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.boot.SpringApplication;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.context.annotation.Profile;
 import org.springframework.data.redis.core.StringRedisTemplate;
@@ -29,9 +30,12 @@ public class DummyDataInitializer implements CommandLineRunner {
     private final Environment environment;
     private final ConfigurableApplicationContext applicationContext;
 
+    @Value("${app.dummy-data.reset-enabled:false}")
+    private boolean resetEnabled;
+
     @Override
     public void run(String... args) throws Exception {
-        log.info("Starting database cleanup and dummy data seeding process...");
+        log.info("Starting dummy data seeding process. resetEnabled={}", resetEnabled);
 
         // 18개 다채로운 더미 공연 정의 (임영웅, 싸이, 아이유 등)
         List<DummyShowInfo> dummyShows = Arrays.asList(
@@ -55,27 +59,10 @@ public class DummyDataInitializer implements CommandLineRunner {
             new DummyShowInfo("뮤지컬 엘리자벳 ELISABETH", "예술의전당 오페라극장", "active", "https://images.unsplash.com/photo-1503095391758-11200cf53674?w=800")
         );
 
-        // 1. 기존 지저분한 임시 테스트 데이터 클렌징 (Test, Sihyun, Trot, 게임, ??? 등) + 기존 더미 데이터의 좌석구조 갱신을 위해 기존 더미도 삭제
-        List<Show> allShows = showRepository.findAll();
-        for (Show s : allShows) {
-            String title = s.getTitle();
-            boolean isOldDummy = dummyShows.stream().anyMatch(d -> d.title.equalsIgnoreCase(title));
-            if (title == null || 
-                isOldDummy ||
-                title.contains("Test") || 
-                title.contains("Sihyun") || 
-                title.contains("Trot") || 
-                title.contains("?") || 
-                title.contains("어드민") || 
-                title.contains("게임")) {
-                
-                try {
-                    adminService.deleteShow(s.getShowId());
-                    log.info("🗑️ Cleaned up old/dirty show: ID={}, Title='{}'", s.getShowId(), title);
-                } catch (Exception e) {
-                    log.warn("Failed to delete dirty show: ID={}, Title='{}'", s.getShowId(), title, e);
-                }
-            }
+        if (resetEnabled) {
+            cleanUpExistingDummyShows(dummyShows);
+        } else {
+            log.info("Dummy data reset is disabled. Existing shows will be kept.");
         }
 
         // 2. 남은 공연 개수 확인
@@ -160,6 +147,31 @@ public class DummyDataInitializer implements CommandLineRunner {
 
         log.info("Dummy data initialization completed successfully!");
         shutdownAfterDbInit();
+    }
+
+    private void cleanUpExistingDummyShows(List<DummyShowInfo> dummyShows) {
+        // reset-enabled=true일 때만 기존 더미/임시 공연을 삭제한다.
+        List<Show> allShows = showRepository.findAll();
+        for (Show s : allShows) {
+            String title = s.getTitle();
+            boolean isOldDummy = title != null && dummyShows.stream().anyMatch(d -> d.title.equalsIgnoreCase(title));
+            if (title == null ||
+                    isOldDummy ||
+                    title.contains("Test") ||
+                    title.contains("Sihyun") ||
+                    title.contains("Trot") ||
+                    title.contains("?") ||
+                    title.contains("어드민") ||
+                    title.contains("게임")) {
+
+                try {
+                    adminService.deleteShow(s.getShowId());
+                    log.info("Cleaned up old/dirty show: ID={}, Title='{}'", s.getShowId(), title);
+                } catch (Exception e) {
+                    log.warn("Failed to delete dirty show: ID={}, Title='{}'", s.getShowId(), title, e);
+                }
+            }
+        }
     }
 
     private void shutdownAfterDbInit() {

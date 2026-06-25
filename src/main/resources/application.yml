@@ -36,6 +36,8 @@ jwt:
   expiration-ms: ${JWT_EXPIRATION_MS:3600000}
 
 app:
+  dummy-data:
+    reset-enabled: ${DUMMY_DATA_RESET_ENABLED:false}
   sqs:
     booking-queue: ${AWS_SQS_BOOKING_QUEUE_URL:booking-queue}
   s3:
