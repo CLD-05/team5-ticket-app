@@ -180,11 +180,6 @@
       font-weight: 700;
     }
 
-    .show-venue::after { 
-      content: '📍';
-      font-size: 14px;
-    }
-
     /* Info 가로 테이블 구조 스타일링 (예시 사진 레이아웃) */
     .info-table {
       width: 100%;
@@ -193,7 +188,7 @@
     }
 
 	.info-table th {
-	  width: 70px;
+	  width: 110px;
 	  padding: 12px 0;
 	  font-size: 15px;
 	  color: #666666;
@@ -411,15 +406,15 @@
           <tbody>
             <tr>
               <th>장소</th>
-              <td><div class="show-venue" id="showVenue" style="font-weight: 700;">Loading...</div></td>
+              <td><div class="show-venue" id="showVenue" style="letter-spacing: 0.5px;">Loading...</div></td>
             </tr>
             <tr>
               <th>일시</th>
-              <td id="performanceTimeVal" style="font-weight: 700;">Loading...</td>
+              <td id="performanceTimeVal" style="font-weight: 700; letter-spacing: 0.5px;">Loading...</td>
             </tr>
 			<tr>
 			  <th>예매 기간</th>
-			  <td id="bookingPeriodVal" style="font-weight: 700;">Loading...</td>
+			  <td id="bookingPeriodVal" style="font-weight: 700; letter-spacing: 0.5px;">Loading...</td>
 			</tr>
 			<tr>
               <td colspan="2" style="padding: 15px 0;"><div class="divider"></div></td>
