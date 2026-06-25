@@ -7,8 +7,11 @@ import com.example.ticketing.show.repository.ShowRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.CommandLineRunner;
+import org.springframework.boot.SpringApplication;
+import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.context.annotation.Profile;
 import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.core.env.Environment;
 import org.springframework.stereotype.Component;
 
 import java.util.Arrays;
@@ -23,6 +26,8 @@ public class DummyDataInitializer implements CommandLineRunner {
     private final ShowRepository showRepository;
     private final AdminService adminService;
     private final StringRedisTemplate redisTemplate;
+    private final Environment environment;
+    private final ConfigurableApplicationContext applicationContext;
 
     @Override
     public void run(String... args) throws Exception {
@@ -154,6 +159,17 @@ public class DummyDataInitializer implements CommandLineRunner {
         }
 
         log.info("Dummy data initialization completed successfully!");
+        shutdownAfterDbInit();
+    }
+
+    private void shutdownAfterDbInit() {
+        if (!Arrays.asList(environment.getActiveProfiles()).contains("db-init")) {
+            return;
+        }
+
+        log.info("db-init profile detected. Shutting down application after dummy data initialization.");
+        int exitCode = SpringApplication.exit(applicationContext);
+        System.exit(exitCode);
     }
 
     private static class DummyShowInfo {
