@@ -163,13 +163,14 @@
     .rank-number {
       height: 100%;
       min-height: 150px;
-      background: linear-gradient(135deg, #4f46e5, #7c3aed);
-      color: white;
+      background: white;
+      color: black;
       font-size: 36px;
       font-weight: 900;
       display: flex;
       justify-content: center;
       align-items: center;
+      padding-left: 20px;
     }
 
     .poster {
@@ -211,17 +212,17 @@
     .show-title {
       font-size: 22px;
       font-weight: 900;
-      margin-bottom: 8px;
+      margin-bottom: 10px;
     }
 
     .show-place {
       color: #6b7280;
-      font-size: 15px;
+      font-size: 16px;
     }
 
     .show-date {
       color: #6b7280;
-      font-size: 13px;
+      font-size: 15px;
       margin-top: 6px;
     }
 
@@ -487,8 +488,7 @@
               <div class="show-category">POPULAR</div>
               <div class="show-title">${show.title ?? "제목 없음"}</div>
               <div class="show-place">${show.venue ?? "장소 정보 없음"}</div>
-              <div class="show-date">${show.startDate ?? "2026.07.01"} ${show.endDate ? "~ " + show.endDate : ""}</div>
-              <div class="show-price">150,000원 ~</div>
+              <div class="show-date" id="rankDate-${show.showId}">날짜 불러오는 중...</div>
             </div>
 
             <div class="detail-area">
@@ -499,6 +499,27 @@
           `;
 
           container.appendChild(card);
+          
+          fetch(`/api/v1/shows/${show.showId}`)
+          .then(res => res.ok ? res.json() : null)
+          .then(detail => {
+              const dateEl = document.getElementById(`rankDate-${show.showId}`);
+              if (dateEl) {
+                  if (detail && detail.performanceAt) {
+                      const d = new Date(detail.performanceAt * 1000);
+                      const y = d.getFullYear();
+                      const m = String(d.getMonth() + 1).padStart(2, '0');
+                      const day = String(d.getDate()).padStart(2, '0');
+                      dateEl.innerText = `${y}.${m}.${day}`;
+                  } else {
+                      dateEl.innerText = "정보 없음";
+                  }
+              }
+          })
+          .catch(() => {
+              const dateEl = document.getElementById(`rankDate-${show.showId}`);
+              if (dateEl) dateEl.innerText = "정보 없음";
+          });
         });
 
       } catch (error) {
@@ -511,7 +532,7 @@
         console.error(error);
       }
     }
-
+	  
     function goDetail(showId) {
       location.href = `/shows/${showId}`;
     }
