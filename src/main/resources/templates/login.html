@@ -5,6 +5,63 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>로그인 - Ticket Wave</title>
   <link rel="stylesheet" th:href="@{/css/auth.css}">
+
+  <style>
+    .social-login-area {
+      margin-top: 24px;
+    }
+
+    .divider {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin: 20px 0;
+      color: #888;
+      font-size: 14px;
+    }
+
+    .divider::before,
+    .divider::after {
+      content: "";
+      flex: 1;
+      height: 1px;
+      background: #ddd;
+    }
+
+    .social-btn {
+      display: block;
+      width: 100%;
+      padding: 13px 16px;
+      border-radius: 8px;
+      text-align: center;
+      text-decoration: none;
+      font-weight: 700;
+      font-size: 15px;
+      box-sizing: border-box;
+      margin-bottom: 10px;
+      transition: 0.2s;
+    }
+
+    .social-btn.google {
+      background: #ffffff;
+      color: #333333;
+      border: 1px solid #dddddd;
+    }
+
+    .social-btn.google:hover {
+      background: #f7f7f7;
+    }
+
+    .social-btn.naver {
+      background: #03c75a;
+      color: #ffffff;
+      border: 1px solid #03c75a;
+    }
+
+    .social-btn.naver:hover {
+      background: #02b351;
+    }
+  </style>
 </head>
 <body>
   <div class="auth-container">
@@ -13,33 +70,52 @@
         <a href="/" class="auth-logo">Ticket Wave</a>
         <div class="auth-subtitle">로그인하여 대기열 티켓을 발급받으세요.</div>
       </div>
+
       <div class="alert alert-danger" id="errorAlert"></div>
+
       <form id="loginForm">
         <div class="form-group">
           <label class="form-label" for="email">이메일 주소</label>
           <input class="form-input" type="email" id="email" required placeholder="example@email.com">
         </div>
+
         <div class="form-group">
           <label class="form-label" for="password">비밀번호</label>
           <input class="form-input" type="password" id="password" required placeholder="••••••••">
         </div>
+
         <button class="auth-btn" type="submit">로그인</button>
       </form>
+
+      <!-- 소셜 로그인 영역 -->
+      <div class="social-login-area">
+        <div class="divider">또는</div>
+
+        <a class="social-btn google" th:href="@{/oauth2/authorization/google}">
+          구글로 로그인
+        </a>
+
+        <a class="social-btn naver" th:href="@{/oauth2/authorization/naver}">
+          네이버로 로그인
+        </a>
+      </div>
+
       <div class="auth-footer">
         아직 회원이 아니신가요? <a class="auth-link" href="/signup">회원가입</a>
       </div>
     </div>
   </div>
+
   <script>
     document.getElementById("loginForm").addEventListener("submit", async function(event) {
         event.preventDefault();
-        
+
         const email = document.getElementById("email").value;
         const password = document.getElementById("password").value;
         const errorAlert = document.getElementById("errorAlert");
-        
+
         errorAlert.style.display = "none";
-        
+
         try {
             const response = await fetch("/api/v1/auth/login", {
                 method: "POST",
@@ -48,13 +124,14 @@
                 },
                 body: JSON.stringify({ email, password })
             });
-            
+
             if (response.ok) {
                 const data = await response.json();
+
                 localStorage.setItem("accessToken", data.accessToken);
                 localStorage.setItem("userId", data.userId);
                 localStorage.setItem("userName", data.name);
-                
+
                 window.location.href = "/";
             } else {
                 const errData = await response.json();

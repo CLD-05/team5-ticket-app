@@ -440,6 +440,31 @@
         }
     }
   </script>
+  <script>
+    function getCookie(name) {
+        const value = document.cookie
+            .split("; ")
+            .find(row => row.startsWith(name + "="));
+
+        return value ? value.split("=")[1] : null;
+    }
+
+    const accessTokenFromCookie = getCookie("accessToken");
+    const userIdFromCookie = getCookie("userId");
+    const userNameFromCookie = getCookie("userName");
+
+    if (accessTokenFromCookie && !localStorage.getItem("accessToken")) {
+        localStorage.setItem("accessToken", accessTokenFromCookie);
+
+        if (userIdFromCookie) {
+            localStorage.setItem("userId", userIdFromCookie);
+        }
+
+        if (userNameFromCookie) {
+            localStorage.setItem("userName", decodeURIComponent(userNameFromCookie));
+        }
+    }
+  </script>
 </body>
 
 </html>

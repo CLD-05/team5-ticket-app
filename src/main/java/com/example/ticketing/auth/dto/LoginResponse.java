@@ -10,4 +10,6 @@ public record LoginResponse(
         String userId,
         @Schema(description = "사용자 이름", example = "홍길동")
         String name
-) {}
+) {
+
+}

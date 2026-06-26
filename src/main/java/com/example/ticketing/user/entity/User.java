@@ -1,9 +1,10 @@
 package com.example.ticketing.user.entity;
 
+import com.example.ticketing.user.domain.AuthProvider;
 import jakarta.persistence.*;
 import lombok.*;
+
 import java.time.LocalDateTime;
-import java.util.UUID;
 
 @Entity
 @Table(name = "users")
@@ -12,6 +13,7 @@ import java.util.UUID;
 @AllArgsConstructor
 @Builder
 public class User {
+
     @Id
     @Column(name = "user_id", length = 36)
     private String userId;
@@ -25,6 +27,13 @@ public class User {
     @Column(nullable = false, length = 50)
     private String name;
 
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 20)
+    private AuthProvider provider;
+
+    @Column(name = "provider_id", length = 100)
+    private String providerId;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
@@ -33,8 +42,13 @@ public class User {
         if (this.userId == null) {
             this.userId = java.util.UUID.randomUUID().toString();
         }
+
         if (this.createdAt == null) {
             this.createdAt = LocalDateTime.now();
+        }
+
+        if (this.provider == null) {
+            this.provider = AuthProvider.LOCAL;
         }
     }
 
@@ -44,5 +58,10 @@ public class User {
 
     public void updateName(String newName) {
         this.name = newName;
+    }
+
+    public void updateProvider(AuthProvider provider, String providerId) {
+        this.provider = provider;
+        this.providerId = providerId;
     }
 }
