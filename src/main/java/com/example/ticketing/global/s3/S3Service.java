@@ -21,6 +21,9 @@ public class S3Service {
     @Value("${app.s3.bucket}")
     private String bucketName;
 
+    @Value("${app.s3.cdn-base-url:}")
+    private String cdnBaseUrl;
+
     public String uploadPoster(MultipartFile file) {
         if (file == null || file.isEmpty()) {
             return null;
@@ -36,8 +39,11 @@ public class S3Service {
         try (InputStream inputStream = file.getInputStream()) {
             var resource = s3Template.upload(bucketName, savedFilename, inputStream, null);
             log.info("Successfully uploaded poster image to S3: {}/{}", bucketName, savedFilename);
-            
-            // Return public URL of the uploaded image
+
+            if (cdnBaseUrl != null && !cdnBaseUrl.isBlank()) {
+                return cdnBaseUrl.replaceAll("/+$", "") + "/" + savedFilename;
+            }
+
             return resource.getURL().toString();
         } catch (IOException e) {
             log.error("Failed to upload file to S3", e);
