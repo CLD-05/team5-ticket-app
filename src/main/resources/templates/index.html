@@ -191,6 +191,38 @@
       margin-top: 6px;
     }
 
+    .congestion-badge {
+      display: inline-flex;
+      align-items: center;
+      min-height: 28px;
+      margin-top: 12px;
+      padding: 6px 10px;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 900;
+    }
+
+    .congestion-SMOOTH {
+      background: #ecfdf5;
+      color: #047857;
+    }
+
+    .congestion-NORMAL {
+      background: #fffbeb;
+      color: #b45309;
+    }
+
+    .congestion-VERY_BUSY {
+      background: #fef2f2;
+      color: #b91c1c;
+    }
+
+    .congestion-UPCOMING,
+    .congestion-CLOSED {
+      background: #f3f4f6;
+      color: #4b5563;
+    }
+
     .show-price {
       margin-top: 14px;
       color: #4f46e5;
@@ -383,6 +415,7 @@
                         <div class="show-title">${show.title}</div>
                         <div class="show-place">${show.venue}</div>
                         <div class="show-date" id="showDate-${show.showId}">날짜 불러오는 중...</div>
+                        <div class="congestion-badge congestion-${show.congestionStatus ?? "SMOOTH"}">${show.congestionLabel ?? "원활"}</div>
                     </div>
                 `;
                 showGrid.appendChild(card);

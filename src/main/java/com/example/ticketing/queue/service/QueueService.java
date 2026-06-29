@@ -36,6 +36,9 @@ public class QueueService {
     @Value("${queue.promotion-batch-size:100}")
     private int promotionBatchSize;
 
+    @Value("${queue.estimated-admission-rate-per-minute:100}")
+    private long estimatedAdmissionRatePerMinute;
+
     // ⚠️ 부하테스트(A 방식) 전용: 큐토큰 검증 우회 스위치.
     //    기본 false. dev/loadtest 프로파일에서만 QUEUE_TOKEN_BYPASS=true 로 켤 것.
     //    운영 프로파일에선 절대 true 금지 (대기열 자체가 무력화됨).
@@ -63,23 +66,23 @@ public class QueueService {
         cleanupExpiredActiveUsers(showId);
 
         if (isActiveUser(showId, userId)) {
-            return new QueueStatusResponse("ACTIVE", null, true, issueQueueToken(showId, userId));
+            return activeResponse(showId, userId);
         }
 
         Long rank = redisTemplate.opsForZSet().rank(waitingQueueKey(showId), userId);
         if (rank != null) {
-            return new QueueStatusResponse("WAITING", rank + 1, false, null);
+            return waitingResponse(showId, rank + 1);
         }
 
         if (canEnterImmediately(showId)) {
             // 대기자가 없고 ACTIVE 여유가 있으면 대기열 화면 없이 바로 입장 토큰을 발급함
             redisTemplate.opsForZSet().add(activeQueueKey(showId), userId, activeExpiresAt());
-            return new QueueStatusResponse("ACTIVE", null, true, issueQueueToken(showId, userId));
+            return activeResponse(showId, userId);
         }
 
         redisTemplate.opsForZSet().add(waitingQueueKey(showId), userId, Instant.now().toEpochMilli());
         Long newRank = redisTemplate.opsForZSet().rank(waitingQueueKey(showId), userId);
-        return new QueueStatusResponse("WAITING", newRank == null ? null : newRank + 1, false, null);
+        return waitingResponse(showId, newRank == null ? null : newRank + 1);
     }
 
     public synchronized QueueStatusResponse getStatus(Long showId, String userId) {
@@ -88,14 +91,14 @@ public class QueueService {
         // Redis ZSET rank는 0부터 시작하므로 응답에서는 1을 더함
         Long rank = redisTemplate.opsForZSet().rank(waitingQueueKey(showId), userId);
         if (rank == null && isActiveUser(showId, userId)) {
-            return new QueueStatusResponse("ACTIVE", null, true, issueQueueToken(showId, userId));
+            return activeResponse(showId, userId);
         }
 
         if (rank == null) {
             throw new NotFoundException(ErrorCode.QUEUE_NOT_FOUND);
         }
 
-        return new QueueStatusResponse("WAITING", rank + 1, false, null);
+        return waitingResponse(showId, rank + 1);
     }
 
     public void leaveQueue(Long showId, String userId) {
@@ -235,6 +238,31 @@ public class QueueService {
         return size == null ? 0 : size;
     }
 
+    private QueueStatusResponse activeResponse(Long showId, String userId) {
+        QueueCounts counts = queueCounts(showId);
+        return new QueueStatusResponse("ACTIVE", null, true, issueQueueToken(showId, userId),
+                counts.waitingCount(), counts.activeCount(), counts.totalCount(), null);
+    }
+
+    private QueueStatusResponse waitingResponse(Long showId, Long position) {
+        QueueCounts counts = queueCounts(showId);
+        return new QueueStatusResponse("WAITING", position, false, null,
+                counts.waitingCount(), counts.activeCount(), counts.totalCount(), estimateWaitSeconds(position));
+    }
+
+    private QueueCounts queueCounts(Long showId) {
+        long waitingCount = zSetSize(waitingQueueKey(showId));
+        long activeCount = zSetSize(activeQueueKey(showId));
+        return new QueueCounts(waitingCount, activeCount);
+    }
+
+    private Long estimateWaitSeconds(Long position) {
+        if (position == null || estimatedAdmissionRatePerMinute <= 0) {
+            return null;
+        }
+        return Math.max(1, (long) Math.ceil(position * 60.0 / estimatedAdmissionRatePerMinute));
+    }
+
     private double activeExpiresAt() {
         return Instant.now().plus(QUEUE_TOKEN_TTL).toEpochMilli();
     }
@@ -331,6 +359,20 @@ public class QueueService {
             @Schema(description = "예매 화면 입장 가능 여부", example = "false")
             boolean canEnter,
             @Schema(description = "예매 요청에 사용할 Queue Token. WAITING 상태에서는 null입니다.", example = "550e8400-e29b-41d4-a716-446655440000")
-            String queueToken
+            String queueToken,
+            @Schema(description = "현재 대기 중인 사용자 수", example = "1200")
+            long waitingCount,
+            @Schema(description = "현재 입장 가능 상태인 사용자 수", example = "300")
+            long activeCount,
+            @Schema(description = "현재 대기열 전체 인원 수", example = "1500")
+            long totalQueueCount,
+            @Schema(description = "예상 대기 시간(초). ACTIVE 상태에서는 null입니다.", example = "180")
+            Long estimatedWaitSeconds
     ) {}
+
+    private record QueueCounts(long waitingCount, long activeCount) {
+        long totalCount() {
+            return waitingCount + activeCount;
+        }
+    }
 }
