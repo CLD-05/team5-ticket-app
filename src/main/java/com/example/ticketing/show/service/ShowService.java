@@ -12,6 +12,7 @@ import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
@@ -23,7 +24,11 @@ public class ShowService {
     private final ShowRepository showRepository;
     private final SeatGradeRepository seatGradeRepository;
     private final StringRedisTemplate redisTemplate;
-    
+    private static final String WAITING_QUEUE_KEY_PREFIX = "queue:waiting:";
+    private static final String ACTIVE_QUEUE_KEY_PREFIX = "queue:active:";
+    private static final int NORMAL_CONGESTION_THRESHOLD = 500;
+    private static final int VERY_BUSY_CONGESTION_THRESHOLD = 2000;
+
     @Transactional(readOnly = true)
     public List<ShowListResponseDto> getShows(String keyword) {
 
@@ -36,10 +41,9 @@ public class ShowService {
         }
 
         return shows.stream()
-                .map(ShowListResponseDto::from)
+                .map(this::toShowListResponse)
                 .toList();
     }
-
     @Transactional(readOnly = true)
     public ShowDetailResponseDto getShowDetail(Long showId) {
         try {
@@ -70,7 +74,6 @@ public class ShowService {
 
         return ShowDetailResponseDto.from(show, bookingOpenAt, bookingCloseAt, performanceAt);
     }
-
     @Transactional(readOnly = true)
     public SeatMapResponseDto getSeatMap(Long showId) {
 
@@ -96,7 +99,6 @@ public class ShowService {
                 )
                 .build();
     }
-
     @Transactional(readOnly = true)
     public List<ShowListResponseDto> getPopularShows() {
         Set<String> popularShowIds = redisTemplate.opsForZSet().reverseRange("popular:shows", 0, 9);
@@ -110,7 +112,63 @@ public class ShowService {
         List<Show> sortedShows = new ArrayList<>(shows);
         sortedShows.sort(java.util.Comparator.comparingInt(show -> idsInOrder.indexOf(show.getShowId())));
         return sortedShows.stream()
-                .map(ShowListResponseDto::from)
+                .map(this::toShowListResponse)
                 .toList();
+    }
+
+    private ShowListResponseDto toShowListResponse(Show show) {
+        CongestionInfo congestionInfo = congestionInfo(show.getShowId());
+        return ShowListResponseDto.from(show, congestionInfo.status(), congestionInfo.label());
+    }
+
+    private CongestionInfo congestionInfo(Long showId) {
+        BookingWindow bookingWindow = bookingWindow(showId);
+        long now = Instant.now().getEpochSecond();
+
+        if (bookingWindow.openAt() != null && now < bookingWindow.openAt()) {
+            return new CongestionInfo("UPCOMING", "오픈 예정");
+        }
+        if (bookingWindow.closeAt() != null && now > bookingWindow.closeAt()) {
+            return new CongestionInfo("CLOSED", "예매 마감");
+        }
+
+        long congestionScore = queueCount(WAITING_QUEUE_KEY_PREFIX + showId) + queueCount(ACTIVE_QUEUE_KEY_PREFIX + showId);
+        if (congestionScore >= VERY_BUSY_CONGESTION_THRESHOLD) {
+            return new CongestionInfo("VERY_BUSY", "매우 혼잡");
+        }
+        if (congestionScore >= NORMAL_CONGESTION_THRESHOLD) {
+            return new CongestionInfo("NORMAL", "보통");
+        }
+        return new CongestionInfo("SMOOTH", "원활");
+    }
+
+    private BookingWindow bookingWindow(Long showId) {
+        Long openAt = readEpochSecond("show:" + showId + ":booking_open_at");
+        Long closeAt = readEpochSecond("show:" + showId + ":booking_close_at");
+        return new BookingWindow(openAt, closeAt);
+    }
+
+    private Long readEpochSecond(String key) {
+        try {
+            String value = redisTemplate.opsForValue().get(key);
+            return value == null ? null : Long.parseLong(value);
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    private long queueCount(String key) {
+        try {
+            Long count = redisTemplate.opsForZSet().zCard(key);
+            return count == null ? 0 : count;
+        } catch (Exception e) {
+            return 0;
+        }
+    }
+
+    private record BookingWindow(Long openAt, Long closeAt) {
+    }
+
+    private record CongestionInfo(String status, String label) {
     }
 }
