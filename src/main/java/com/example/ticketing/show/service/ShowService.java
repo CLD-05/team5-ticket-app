@@ -10,6 +10,7 @@ import com.example.ticketing.show.repository.ShowRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -22,7 +23,8 @@ public class ShowService {
     private final ShowRepository showRepository;
     private final SeatGradeRepository seatGradeRepository;
     private final StringRedisTemplate redisTemplate;
-
+    
+    @Transactional(readOnly = true)
     public List<ShowListResponseDto> getShows(String keyword) {
 
         List<Show> shows;
@@ -38,6 +40,7 @@ public class ShowService {
                 .toList();
     }
 
+    @Transactional(readOnly = true)
     public ShowDetailResponseDto getShowDetail(Long showId) {
         try {
             redisTemplate.opsForZSet().incrementScore("popular:shows", String.valueOf(showId), 1.0);
@@ -68,6 +71,7 @@ public class ShowService {
         return ShowDetailResponseDto.from(show, bookingOpenAt, bookingCloseAt, performanceAt);
     }
 
+    @Transactional(readOnly = true)
     public SeatMapResponseDto getSeatMap(Long showId) {
 
         Show show = showRepository.findById(showId)
@@ -93,6 +97,7 @@ public class ShowService {
                 .build();
     }
 
+    @Transactional(readOnly = true)
     public List<ShowListResponseDto> getPopularShows() {
         Set<String> popularShowIds = redisTemplate.opsForZSet().reverseRange("popular:shows", 0, 9);
         if (popularShowIds == null || popularShowIds.isEmpty()) {
