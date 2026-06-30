@@ -29,7 +29,16 @@ public class Show {
 
     @Column(name = "image_url")
     private String imageUrl;
+    
+    @Column(name = "performance_at", nullable = false)
+    private LocalDateTime performanceAt;
 
+    @Column(name = "booking_open_at", nullable = false)
+    private LocalDateTime bookingOpenAt;
+
+    @Column(name = "booking_close_at", nullable = false)
+    private LocalDateTime bookingCloseAt;
+    
     @CreationTimestamp
     private LocalDateTime createdAt;
 

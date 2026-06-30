@@ -4,6 +4,7 @@ import com.example.ticketing.show.entity.Show;
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Builder;
 import lombok.Getter;
+import java.time.LocalDateTime;
 
 @Getter
 @Builder
@@ -21,6 +22,15 @@ public class ShowListResponseDto {
 
     @Schema(description = "공연 이미지 URL", example = "http://localhost:4566/team5-dev-poster-bucket/image.jpg")
     private String imageUrl;
+    
+    @Schema(description = "공연 일시", example = "2026-08-10T19:00:00")
+    private LocalDateTime performanceAt;
+
+    @Schema(description = "예매 시작 일시", example = "2026-07-01T20:00:00")
+    private LocalDateTime bookingOpenAt;
+
+    @Schema(description = "예매 종료 일시", example = "2026-08-09T23:59:59")
+    private LocalDateTime bookingCloseAt;
 
     @Schema(description = "예매 혼잡도 상태", example = "SMOOTH", allowableValues = {"UPCOMING", "SMOOTH", "NORMAL", "VERY_BUSY", "CLOSED"})
     private String congestionStatus;
@@ -38,6 +48,9 @@ public class ShowListResponseDto {
                 .title(show.getTitle())
                 .venue(show.getVenue())
                 .imageUrl(show.getImageUrl())
+                .performanceAt(show.getPerformanceAt())     
+                .bookingOpenAt(show.getBookingOpenAt())     
+                .bookingCloseAt(show.getBookingCloseAt())   
                 .congestionStatus(congestionStatus)
                 .congestionLabel(congestionLabel)
                 .build();
