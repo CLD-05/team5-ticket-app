@@ -9,6 +9,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.data.redis.core.script.DefaultRedisScript;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
@@ -61,31 +62,74 @@ public class QueueService {
         return "JOINED";
     }
 
-    public synchronized QueueStatusResponse enterQueue(Long showId, String userId) {
+    /**
+     * enter 진입 판정을 Redis Lua로 원자화한 스크립트.
+     * Redis는 단일 스레드라 스크립트 실행 중 다른 명령이 끼어들 수 없으므로,
+     * 기존 synchronized(JVM 락)로 보호하던 check-then-act(여유 확인 → ZADD)를
+     * 락 없이 정합성 있게 처리한다.
+     *
+     * KEYS[1] = active ZSET, KEYS[2] = waiting ZSET
+     * ARGV[1] = userId, ARGV[2] = now(ms), ARGV[3] = activeExpiresAt(ms), ARGV[4] = maxActiveUsers
+     *
+     * 반환: { code, rank }
+     *   code 0 = 이미 ACTIVE
+     *   code 1 = 즉시 입장 가능(여유 있음) — 실제 active ZADD는 issueQueueToken이 수행
+     *   code 2 = WAITING (rank = 1-based 순번)
+     *
+     * active 등록(ZADD)은 ENTER_LUA가 원자적으로 수행(동시성 정합성 핵심).
+     * issueQueueToken의 ZADD는 기존 active의 TTL 갱신용(멱등).
+     */
+    private static final String ENTER_LUA =
+            // 만료된 active 정리 (score < now 제거)
+            "redis.call('ZREMRANGEBYSCORE', KEYS[1], '-inf', ARGV[2]) " +
+            // 이미 active면 0
+            "if redis.call('ZSCORE', KEYS[1], ARGV[1]) then return {0, -1} end " +
+            // 이미 waiting이면 현재 순번 반환
+            "local wr = redis.call('ZRANK', KEYS[2], ARGV[1]) " +
+            "if wr then return {2, wr + 1} end " +
+            // 대기자 0명 && active 여유 있으면 즉시 입장: 여유 확인+ZADD를 Lua 안에서 원자적으로
+            "local waitingCnt = redis.call('ZCARD', KEYS[2]) " +
+            "local activeCnt = redis.call('ZCARD', KEYS[1]) " +
+            "if waitingCnt == 0 and activeCnt < tonumber(ARGV[4]) then " +
+            "  redis.call('ZADD', KEYS[1], ARGV[3], ARGV[1]) " +
+            "  return {1, -1} " +
+            "end " +
+            // 그 외 → waiting 추가 후 순번 반환
+            "redis.call('ZADD', KEYS[2], ARGV[2], ARGV[1]) " +
+            "local nr = redis.call('ZRANK', KEYS[2], ARGV[1]) " +
+            "return {2, nr + 1}";
+
+    /**
+     * enterQueue: synchronized 제거. 진입 판정은 ENTER_LUA가 원자적으로 수행한다.
+     * 파드당 직렬화 병목(JVM 단일 락)이 사라지고, promoteQueues와도 락을 공유하지 않는다.
+     */
+    public QueueStatusResponse enterQueue(Long showId, String userId) {
         checkBookingOpenTime(showId);
-        cleanupExpiredActiveUsers(showId);
 
-        if (isActiveUser(showId, userId)) {
+        @SuppressWarnings("unchecked")
+        java.util.List<Long> result = redisTemplate.execute(
+                new DefaultRedisScript<>(ENTER_LUA, java.util.List.class),
+                java.util.List.of(activeQueueKey(showId), waitingQueueKey(showId)),
+                userId,
+                String.valueOf(Instant.now().toEpochMilli()),
+                String.valueOf(activeExpiresAt()),
+                String.valueOf(maxActiveUsers)
+        );
+
+        long code = (result != null && !result.isEmpty()) ? result.get(0) : 2L;
+        if (code == 0L || code == 1L) {
+            // ACTIVE (기존이거나 신규 승급) → 토큰 발급
             return activeResponse(showId, userId);
         }
-
-        Long rank = redisTemplate.opsForZSet().rank(waitingQueueKey(showId), userId);
-        if (rank != null) {
-            return waitingResponse(showId, rank + 1);
-        }
-
-        if (canEnterImmediately(showId)) {
-            // 대기자가 없고 ACTIVE 여유가 있으면 대기열 화면 없이 바로 입장 토큰을 발급함
-            redisTemplate.opsForZSet().add(activeQueueKey(showId), userId, activeExpiresAt());
-            return activeResponse(showId, userId);
-        }
-
-        redisTemplate.opsForZSet().add(waitingQueueKey(showId), userId, Instant.now().toEpochMilli());
-        Long newRank = redisTemplate.opsForZSet().rank(waitingQueueKey(showId), userId);
-        return waitingResponse(showId, newRank == null ? null : newRank + 1);
+        // WAITING
+        Long rank = (result != null && result.size() > 1) ? result.get(1) : null;
+        return waitingResponse(showId, rank);
     }
 
-    public synchronized QueueStatusResponse getStatus(Long showId, String userId) {
+    /**
+     * getStatus: 읽기 전용(rank 조회)이라 락이 불필요. cleanup만 원자적으로 처리.
+     */
+    public QueueStatusResponse getStatus(Long showId, String userId) {
         cleanupExpiredActiveUsers(showId);
 
         // Redis ZSET rank는 0부터 시작하므로 응답에서는 1을 더함
@@ -159,11 +203,18 @@ public class QueueService {
         }
     }
 
+    // promote 전용 락. enterQueue/getStatus와 'this' 락을 공유하지 않아
+    // 1초 주기 promote가 enter 진입을 막던 톱니 간섭을 제거한다.
+    // (promote끼리의 중복 실행만 막으면 충분 — enter는 ENTER_LUA가 원자성 보장)
+    private final Object promoteLock = new Object();
+
     @Scheduled(fixedRateString = "${queue.promotion-interval-ms:1000}")
-    public synchronized void promoteQueues() {
-        for (Long showId : findQueueShowIds()) {
-            cleanupExpiredActiveUsers(showId);
-            promoteWaitingUsers(showId);
+    public void promoteQueues() {
+        synchronized (promoteLock) {
+            for (Long showId : findQueueShowIds()) {
+                cleanupExpiredActiveUsers(showId);
+                promoteWaitingUsers(showId);
+            }
         }
     }
 
