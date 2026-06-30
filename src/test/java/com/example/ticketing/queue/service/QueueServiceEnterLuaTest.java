@@ -17,6 +17,8 @@ import static org.assertj.core.api.Assertions.assertThat;
  * enter는 Redis만 필요하므로 QueueService를 직접 new 하고 StringRedisTemplate만 연결한다.
  * 사전조건: localhost:6379 Redis.
  */
+@org.junit.jupiter.api.condition.EnabledIfSystemProperty(named = "redis.test", matches = "true")
+
 class QueueServiceEnterLuaTest {
 
     private static LettuceConnectionFactory connectionFactory;
