@@ -136,6 +136,26 @@ public class QueueService {
             "return n";
 
     /**
+     * ACTIVE 토큰 발급을 원자화한 Lua. 기존 issueQueueToken의 Redis 4회 왕복
+     * (ZADD + GET + SET + SET)을 1회로 축소 — 5000 VU에서 enter가 무거워지던 원인 완화.
+     *
+     * KEYS[1]=active ZSET, KEYS[2]=userTokenKey, KEYS[3]=tokenKey(신규 후보)
+     * ARGV[1]=userId, [2]=activeExpiresAt(ms), [3]=newToken(Java 생성 UUID),
+     * [4]=tokenValue(showId:userId), [5]=ttlSeconds
+     * 반환: 실제 사용된 토큰 (기존 있으면 기존, 없으면 신규)
+     *
+     * 주의: 기존 토큰이 있으면 KEYS[3](신규 후보 tokenKey)는 쓰이지 않음.
+     *       신규일 때만 tokenKey(newToken)에 저장되므로, Java가 newToken 기준으로 KEYS[3] 전달.
+     */
+    private static final String TOKEN_LUA =
+            "redis.call('ZADD', KEYS[1], ARGV[2], ARGV[1]) " +
+            "local existing = redis.call('GET', KEYS[2]) " +
+            "if existing then return existing end " +
+            "redis.call('SET', KEYS[2], ARGV[3], 'EX', tonumber(ARGV[5])) " +
+            "redis.call('SET', KEYS[3], ARGV[4], 'EX', tonumber(ARGV[5])) " +
+            "return ARGV[3]";
+
+    /**
      * enterQueue: synchronized 제거. 진입 판정은 ENTER_LUA가 원자적으로 수행한다.
      * 파드당 직렬화 병목(JVM 단일 락)이 사라지고, promoteQueues와도 락을 공유하지 않는다.
      */
@@ -358,19 +378,20 @@ public class QueueService {
     }
 
     private String issueQueueToken(Long showId, String userId) {
-        redisTemplate.opsForZSet().add(activeQueueKey(showId), userId, activeExpiresAt());
-
-        // ACTIVE 상태에서는 기존 Queue Token을 재사용
-        String existingToken = redisTemplate.opsForValue().get(userTokenKey(showId, userId));
-        if (StringUtils.hasText(existingToken)) {
-            return existingToken;
-        }
-
-        // ACTIVE 전환 시 최초 1회만 Queue Token 발급
-        String token = UUID.randomUUID().toString();
-        redisTemplate.opsForValue().set(userTokenKey(showId, userId), token, QUEUE_TOKEN_TTL);
-        redisTemplate.opsForValue().set(tokenKey(token), tokenValue(showId, userId), QUEUE_TOKEN_TTL);
-        return token;
+        // Redis 4회 왕복(ZADD+GET+SET+SET)을 TOKEN_LUA 1회로 축소.
+        // UUID는 Lua에서 못 만들므로 Java가 신규 후보를 생성해 넘기고,
+        // Lua가 기존 토큰 있으면 그것을, 없으면 넘긴 신규를 저장·반환한다.
+        String newToken = UUID.randomUUID().toString();
+        String used = redisTemplate.execute(
+                new DefaultRedisScript<>(TOKEN_LUA, String.class),
+                java.util.List.of(activeQueueKey(showId), userTokenKey(showId, userId), tokenKey(newToken)),
+                userId,
+                String.valueOf(activeExpiresAt()),
+                newToken,
+                tokenValue(showId, userId),
+                String.valueOf(QUEUE_TOKEN_TTL.getSeconds())
+        );
+        return used;
     }
 
     private String activeQueueKey(Long showId) {
