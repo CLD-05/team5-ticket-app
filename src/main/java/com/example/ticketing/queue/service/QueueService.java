@@ -82,22 +82,23 @@ public class QueueService {
     private static final String ENTER_LUA =
             // 만료된 active 정리 (score < now 제거)
             "redis.call('ZREMRANGEBYSCORE', KEYS[1], '-inf', ARGV[2]) " +
-            // 이미 active면 0
-            "if redis.call('ZSCORE', KEYS[1], ARGV[1]) then return {0, -1} end " +
-            // 이미 waiting이면 현재 순번 반환
-            "local wr = redis.call('ZRANK', KEYS[2], ARGV[1]) " +
-            "if wr then return {2, wr + 1} end " +
-            // 대기자 0명 && active 여유 있으면 즉시 입장: 여유 확인+ZADD를 Lua 안에서 원자적으로
-            "local waitingCnt = redis.call('ZCARD', KEYS[2]) " +
+            // 카운트를 먼저 구해 모든 분기에서 함께 반환 (Java의 별도 ZCARD 왕복 제거)
             "local activeCnt = redis.call('ZCARD', KEYS[1]) " +
+            "local waitingCnt = redis.call('ZCARD', KEYS[2]) " +
+            // 이미 active면 code 0
+            "if redis.call('ZSCORE', KEYS[1], ARGV[1]) then return {0, -1, waitingCnt, activeCnt} end " +
+            // 이미 waiting이면 현재 순번
+            "local wr = redis.call('ZRANK', KEYS[2], ARGV[1]) " +
+            "if wr then return {2, wr + 1, waitingCnt, activeCnt} end " +
+            // 대기자 0명 && active 여유 있으면 즉시 입장 (여유 확인+ZADD 원자적)
             "if waitingCnt == 0 and activeCnt < tonumber(ARGV[4]) then " +
             "  redis.call('ZADD', KEYS[1], ARGV[3], ARGV[1]) " +
-            "  return {1, -1} " +
+            "  return {1, -1, waitingCnt, activeCnt + 1} " +
             "end " +
             // 그 외 → waiting 추가 후 순번 반환
             "redis.call('ZADD', KEYS[2], ARGV[2], ARGV[1]) " +
             "local nr = redis.call('ZRANK', KEYS[2], ARGV[1]) " +
-            "return {2, nr + 1}";
+            "return {2, nr + 1, waitingCnt + 1, activeCnt}";
 
     /**
      * enterQueue: synchronized 제거. 진입 판정은 ENTER_LUA가 원자적으로 수행한다.
@@ -117,13 +118,18 @@ public class QueueService {
         );
 
         long code = (result != null && !result.isEmpty()) ? result.get(0) : 2L;
+        // Lua가 계산한 카운트를 재사용 → 별도 ZCARD 왕복 제거
+        long waitingCnt = (result != null && result.size() > 2) ? result.get(2) : 0L;
+        long activeCnt  = (result != null && result.size() > 3) ? result.get(3) : 0L;
+        QueueCounts counts = new QueueCounts(waitingCnt, activeCnt);
+
         if (code == 0L || code == 1L) {
             // ACTIVE (기존이거나 신규 승급) → 토큰 발급
-            return activeResponse(showId, userId);
+            return activeResponse(showId, userId, counts);
         }
         // WAITING
         Long rank = (result != null && result.size() > 1) ? result.get(1) : null;
-        return waitingResponse(showId, rank);
+        return waitingResponse(showId, rank, counts);
     }
 
     /**
@@ -134,15 +140,16 @@ public class QueueService {
 
         // Redis ZSET rank는 0부터 시작하므로 응답에서는 1을 더함
         Long rank = redisTemplate.opsForZSet().rank(waitingQueueKey(showId), userId);
+        QueueCounts counts = queueCounts(showId);
         if (rank == null && isActiveUser(showId, userId)) {
-            return activeResponse(showId, userId);
+            return activeResponse(showId, userId, counts);
         }
 
         if (rank == null) {
             throw new NotFoundException(ErrorCode.QUEUE_NOT_FOUND);
         }
 
-        return waitingResponse(showId, rank + 1);
+        return waitingResponse(showId, rank + 1, counts);
     }
 
     public void leaveQueue(Long showId, String userId) {
@@ -289,14 +296,14 @@ public class QueueService {
         return size == null ? 0 : size;
     }
 
-    private QueueStatusResponse activeResponse(Long showId, String userId) {
-        QueueCounts counts = queueCounts(showId);
+    private QueueStatusResponse activeResponse(Long showId, String userId, QueueCounts counts) {
+        // counts는 ENTER_LUA가 이미 계산한 값을 재사용 (별도 ZCARD 왕복 없음)
         return new QueueStatusResponse("ACTIVE", null, true, issueQueueToken(showId, userId),
                 counts.waitingCount(), counts.activeCount(), counts.totalCount(), null);
     }
 
-    private QueueStatusResponse waitingResponse(Long showId, Long position) {
-        QueueCounts counts = queueCounts(showId);
+    private QueueStatusResponse waitingResponse(Long showId, Long position, QueueCounts counts) {
+        // counts는 ENTER_LUA가 이미 계산한 값을 재사용 (별도 ZCARD 왕복 없음)
         return new QueueStatusResponse("WAITING", position, false, null,
                 counts.waitingCount(), counts.activeCount(), counts.totalCount(), estimateWaitSeconds(position));
     }
