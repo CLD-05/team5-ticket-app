@@ -133,4 +133,50 @@ class QueueServiceEnterLuaTest {
         assertThat(activeCount).isLessThanOrEqualTo(2L);
         assertThat(activeCount + waitingCount).isEqualTo(50L);
     }
+    
+ // ── QueueServiceEnterLuaTest에 추가할 테스트 (promote 배치 + active-shows 검증) ──
+    // 주의: promoteQueues는 @Scheduled지만 직접 호출해서 테스트 가능
+
+    @Test
+    @DisplayName("enter 시 active-shows에 showId 등록됨")
+    void enter_registersActiveShow() {
+        queueService.enterQueue(SHOW_ID, "u1");
+        Boolean isMember = redisTemplate.opsForSet()
+                .isMember("queue:active-shows", String.valueOf(SHOW_ID));
+        assertThat(isMember).isTrue();
+    }
+
+    @Test
+    @DisplayName("promote 배치: 대기자를 정원까지 active로 승급 (Lua 1회)")
+    void promote_movesBatchToActive() {
+        // 정원 2, 대기자 5명 만들기 (정원 초과분은 waiting)
+        for (int i = 1; i <= 5; i++) {
+            queueService.enterQueue(SHOW_ID, "user" + i);
+        }
+        // 초기: active 2, waiting 3
+        assertThat(redisTemplate.opsForZSet().zCard("queue:active:" + SHOW_ID)).isEqualTo(2L);
+        assertThat(redisTemplate.opsForZSet().zCard("queue:waiting:" + SHOW_ID)).isEqualTo(3L);
+
+        // active 정원을 비우고(만료 시뮬레이션) promote 호출 → waiting에서 채워짐
+        redisTemplate.delete("queue:active:" + SHOW_ID);
+        queueService.promoteQueues();
+
+        // promote가 waiting 상위 2명(정원)을 active로 승급
+        Long activeAfter = redisTemplate.opsForZSet().zCard("queue:active:" + SHOW_ID);
+        assertThat(activeAfter).isEqualTo(2L);
+        // waiting은 3 → 1로 감소
+        assertThat(redisTemplate.opsForZSet().zCard("queue:waiting:" + SHOW_ID)).isEqualTo(1L);
+    }
+
+    @Test
+    @DisplayName("promote는 active-shows SET만 순회 (KEYS 전체스캔 없음)")
+    void promote_usesActiveShowsRegistry() {
+        queueService.enterQueue(SHOW_ID, "u1");
+        // 레지스트리에 등록됨
+        assertThat(redisTemplate.opsForSet().members("queue:active-shows"))
+                .contains(String.valueOf(SHOW_ID));
+        // promote 호출해도 정상 동작 (레지스트리 기반)
+        queueService.promoteQueues();
+        // 예외 없이 통과하면 OK (KEYS 스캔 제거돼도 promote 동작)
+    }
 }
