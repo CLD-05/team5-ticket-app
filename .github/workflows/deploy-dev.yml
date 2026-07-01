@@ -4,11 +4,11 @@ on:
   # PR에서는 빌드/테스트까지만 확인합니다.
   pull_request:
     branches:
-      - develop
-  # develop에 merge/push되면 CI 성공 후 ECR push와 config repo tag 업데이트를 진행합니다.
+      - main
+  # main에 merge/push되면 CI 성공 후 ECR push와 config repo tag 업데이트를 진행합니다.
   push:
     branches:
-      - develop
+      - main
     paths-ignore:
       - "**/*.md"
       - "docs/**"
@@ -24,7 +24,7 @@ env:
   AWS_REGION: ap-northeast-2
   ECR_REPOSITORY: team5-dev-app
   CONFIG_REPOSITORY: CLD-05/team5-ticket-config
-  CONFIG_BRANCH: develop
+  CONFIG_BRANCH: main
   CONFIG_KUSTOMIZATION_PATH: apps/ticket-app/overlays/dev/kustomization.yaml
 
 jobs:
@@ -61,7 +61,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: ci
 
-    # PR에서는 배포하지 않고, develop push 또는 수동 실행에서만 CD를 수행합니다.
+    # PR에서는 배포하지 않고, main push 또는 수동 실행에서만 CD를 수행합니다.
     if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
 
     permissions:

@@ -13,11 +13,11 @@ on:
         required: false
         type: string
 
-  # develop merge 기준 prod promotion workflow 자동 실행
+  # main merge 기준 prod promotion workflow 자동 실행
   # 같은 commit으로 dev workflow가 만든 dev-${SHA} 이미지를 prod ECR로 승격
   push:
     branches:
-      - develop
+      - main
     paths-ignore:
       - "**/*.md"
       - "docs/**"
@@ -25,16 +25,13 @@ on:
       - ".github/PULL_REQUEST_TEMPLATE/**"
       - ".gitignore"
       - ".gitattributes"
-  # 프로젝트 최종 규칙에 맞출 때는 develop을 main으로 치환
 
 env:
   AWS_REGION: ap-northeast-2
   DEV_ECR_REPOSITORY: team5-dev-app
   PROD_ECR_REPOSITORY: team5-prod-app
   CONFIG_REPOSITORY: CLD-05/team5-ticket-config
-  # 현재 팀 작업 흐름은 develop 기준
-  # 프로젝트 최종 규칙에 맞출 때는 main으로 치환
-  CONFIG_BRANCH: develop
+  CONFIG_BRANCH: main
   # prod GitOps 매니페스트 image tag 갱신 대상
   CONFIG_KUSTOMIZATION_PATH: apps/ticket-app/overlays/prod/kustomization.yaml
 
@@ -225,7 +222,7 @@ jobs:
           git diff -- "${CONFIG_KUSTOMIZATION_PATH}"
 
       # config repo 변경 발생 시 prod 승격용 브랜치에 commit/push
-      # 대상 브랜치(develop)에 직접 push하지 않고 PR 승인 후 ArgoCD가 반영
+      # 대상 브랜치(main)에 직접 push하지 않고 PR 승인 후 ArgoCD가 반영
       - name: Commit and push promotion branch
         env:
           IMAGE_TAG: ${{ steps.vars.outputs.prod_image_tag }}
