@@ -27,6 +27,8 @@ public class QueueService {
     private final StringRedisTemplate redisTemplate;
     private static final String WAITING_QUEUE_KEY_PREFIX = "queue:waiting:";
     private static final String ACTIVE_QUEUE_KEY_PREFIX = "queue:active:";
+    // 활성 show 레지스트리 — promote가 KEYS 전체 스캔 대신 이 SET만 읽는다 (5만 대기열 대비)
+    private static final String ACTIVE_SHOWS_KEY = "queue:active-shows";
     private static final String USER_TOKEN_KEY_PREFIX = "queue:user-token:";
     private static final String TOKEN_KEY_PREFIX = "queue:token:";
     private static final Duration QUEUE_TOKEN_TTL = Duration.ofMinutes(10);
@@ -93,12 +95,45 @@ public class QueueService {
             // 대기자 0명 && active 여유 있으면 즉시 입장 (여유 확인+ZADD 원자적)
             "if waitingCnt == 0 and activeCnt < tonumber(ARGV[4]) then " +
             "  redis.call('ZADD', KEYS[1], ARGV[3], ARGV[1]) " +
+            "  redis.call('SADD', KEYS[3], ARGV[5]) " +
             "  return {1, -1, waitingCnt, activeCnt + 1} " +
             "end " +
-            // 그 외 → waiting 추가 후 순번 반환
+            // 그 외 → waiting 추가 후 순번 반환 + 활성 show 등록
             "redis.call('ZADD', KEYS[2], ARGV[2], ARGV[1]) " +
+            "redis.call('SADD', KEYS[3], ARGV[5]) " +
             "local nr = redis.call('ZRANK', KEYS[2], ARGV[1]) " +
             "return {2, nr + 1, waitingCnt + 1, activeCnt}";
+
+    /**
+     * promote 배치를 원자화한 Lua. waiting 상위 N명을 active로 한 번에 승급한다.
+     * 기존 while 루프(range+remove+add를 N회 = Redis 3N회 왕복, batch 100이면 300회)를
+     * Lua 1회 실행으로 대체 — 5만 대기열에서 promote가 매초 Redis를 대량 점유하던 문제 해소.
+     *
+     * KEYS[1]=waiting ZSET, KEYS[2]=active ZSET, KEYS[3]=active-shows SET
+     * ARGV[1]=slots(승급할 최대 인원), ARGV[2]=activeExpiresAt(ms), ARGV[3]=showId
+     * 반환: 승급한 인원 수
+     */
+    private static final String PROMOTE_LUA =
+            "local slots = tonumber(ARGV[1]) " +
+            "if slots <= 0 then return 0 end " +
+            // waiting 상위 slots명 조회 (score 오름차순 = 먼저 온 순)
+            "local users = redis.call('ZRANGE', KEYS[1], 0, slots - 1) " +
+            "local n = #users " +
+            "if n == 0 then " +
+            // 대기자 없음 + active도 비면 레지스트리에서 제거
+            "  if redis.call('ZCARD', KEYS[2]) == 0 then redis.call('SREM', KEYS[3], ARGV[3]) end " +
+            "  return 0 " +
+            "end " +
+            // 조회한 n명을 waiting에서 제거하고 active에 추가
+            "for i = 1, n do " +
+            "  redis.call('ZREM', KEYS[1], users[i]) " +
+            "  redis.call('ZADD', KEYS[2], ARGV[2], users[i]) " +
+            "end " +
+            // 승급 후 waiting/active 모두 비면 레지스트리 정리
+            "if redis.call('ZCARD', KEYS[1]) == 0 and redis.call('ZCARD', KEYS[2]) == 0 then " +
+            "  redis.call('SREM', KEYS[3], ARGV[3]) " +
+            "end " +
+            "return n";
 
     /**
      * enterQueue: synchronized 제거. 진입 판정은 ENTER_LUA가 원자적으로 수행한다.
@@ -110,11 +145,12 @@ public class QueueService {
         @SuppressWarnings("unchecked")
         java.util.List<Long> result = redisTemplate.execute(
                 new DefaultRedisScript<>(ENTER_LUA, java.util.List.class),
-                java.util.List.of(activeQueueKey(showId), waitingQueueKey(showId)),
+                java.util.List.of(activeQueueKey(showId), waitingQueueKey(showId), ACTIVE_SHOWS_KEY),
                 userId,
                 String.valueOf(Instant.now().toEpochMilli()),
                 String.valueOf(activeExpiresAt()),
-                String.valueOf(maxActiveUsers)
+                String.valueOf(maxActiveUsers),
+                String.valueOf(showId)
         );
 
         long code = (result != null && !result.isEmpty()) ? result.get(0) : 2L;
@@ -255,40 +291,36 @@ public class QueueService {
         String waitingQueueKey = waitingQueueKey(showId);
         long activeCount = zSetSize(activeQueueKey);
         long slots = Math.min(promotionBatchSize, maxActiveUsers - activeCount);
-
-        while (slots > 0) {
-            var nextUsers = redisTemplate.opsForZSet().range(waitingQueueKey, 0, 0);
-            if (nextUsers == null || nextUsers.isEmpty()) {
-                return;
-            }
-
-            String nextUserId = nextUsers.iterator().next();
-            redisTemplate.opsForZSet().remove(waitingQueueKey, nextUserId);
-            redisTemplate.opsForZSet().add(activeQueueKey, nextUserId, activeExpiresAt());
-            slots--;
-        }
-    }
-
-    private Set<Long> findQueueShowIds() {
-        Set<Long> showIds = new HashSet<>();
-        collectShowIds(showIds, WAITING_QUEUE_KEY_PREFIX);
-        collectShowIds(showIds, ACTIVE_QUEUE_KEY_PREFIX);
-        return showIds;
-    }
-
-    private void collectShowIds(Set<Long> showIds, String keyPrefix) {
-        Set<String> keys = redisTemplate.keys(keyPrefix + "*");
-        if (keys == null) {
+        if (slots <= 0) {
             return;
         }
 
-        for (String key : keys) {
-            String showId = key.substring(keyPrefix.length());
+        // 배치 승급 + 레지스트리 정리를 PROMOTE_LUA 한 번으로 (기존 Redis 3N회 왕복 → 1회)
+        redisTemplate.execute(
+                new DefaultRedisScript<>(PROMOTE_LUA, Long.class),
+                java.util.List.of(waitingQueueKey, activeQueueKey, ACTIVE_SHOWS_KEY),
+                String.valueOf(slots),
+                String.valueOf(activeExpiresAt()),
+                String.valueOf(showId)
+        );
+    }
+
+    private Set<Long> findQueueShowIds() {
+        // KEYS 전체 스캔(O(N), Redis 블로킹) 제거 → active-shows SET만 읽음.
+        // 5만 대기열 + 유저별 토큰키(10만+)에서 KEYS는 매 promote마다 전체 키스페이스를
+        // 스캔해 Redis를 멈추게 하므로, 활성 show만 담은 작은 SET을 단일 출처로 사용한다.
+        Set<String> members = redisTemplate.opsForSet().members(ACTIVE_SHOWS_KEY);
+        if (members == null || members.isEmpty()) {
+            return java.util.Collections.emptySet();
+        }
+        Set<Long> showIds = new HashSet<>();
+        for (String m : members) {
             try {
-                showIds.add(Long.parseLong(showId));
+                showIds.add(Long.parseLong(m));
             } catch (NumberFormatException ignored) {
             }
         }
+        return showIds;
     }
 
     private long zSetSize(String key) {
