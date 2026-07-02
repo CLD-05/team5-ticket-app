@@ -6,6 +6,20 @@
 #   SPRING_DATA_REDIS_*, AWS_SQS_*, JWT_SECRET)로 ESO 주입받음.
 #   -> Spring Boot 가 표준 키를 자동 바인딩하므로 이 yml 에서 url/host 등을 명시하지 않음
 #      (명시하면 ${ENV} 미해석/중복 바인딩으로 충돌). 환경변수로 안 오는 값만 여기 둔다.
+
+# === 톰캣 워커 스레드풀 관측 (부하 진단용) ===
+# Micrometer 는 톰캣 스레드 지표(tomcat_threads_busy/config_max)를 톰캣 JMX MBean 에서 읽는데,
+# Spring Boot 는 이 MBean 등록을 기본 비활성화한다 -> 켜야 부하 중 스레드 포화(max 도달)를 관측 가능.
+# (A 측정: enter p99 지연이 자원 포화가 아닌 스레드 큐잉 대기로 추정됨 -> 이 지표로 확정하기 위함)
+server:
+  tomcat:
+    mbeanregistry:
+      enabled: true
+    threads:
+      # deployment base 의 SERVER_TOMCAT_THREADS_MAX env 와 동일 소스로 바인딩.
+      # 명시해두면 tomcat_threads_config_max_threads 지표가 이 값으로 안정적으로 노출됨.
+      max: ${SERVER_TOMCAT_THREADS_MAX:400}
+
 spring:
   datasource:
     # url/username/password 는 SPRING_DATASOURCE_* 환경변수(ESO)로 주입됨 -> 여기 명시 안 함.
