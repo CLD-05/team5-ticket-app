@@ -69,6 +69,38 @@
       transition: width 0.3s ease;
     }
 
+    .queue-summary {
+      width: min(860px, 100%);
+      margin: -36px auto 44px;
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 14px;
+    }
+
+    .summary-item {
+      min-height: 96px;
+      padding: 18px 20px;
+      border: 1px solid #e5e7eb;
+      border-radius: 8px;
+      background: #ffffff;
+      text-align: left;
+    }
+
+    .summary-label {
+      margin: 0 0 8px;
+      color: #6b7280;
+      font-size: 15px;
+      font-weight: 800;
+    }
+
+    .summary-value {
+      margin: 0;
+      color: #111827;
+      font-size: 28px;
+      font-weight: 900;
+      line-height: 1.2;
+    }
+
     .message {
       margin: 0;
       font-size: 36px;
@@ -180,6 +212,15 @@
         margin: 40px auto 44px;
       }
 
+      .queue-summary {
+        grid-template-columns: 1fr;
+        margin: -22px auto 30px;
+      }
+
+      .summary-value {
+        font-size: 23px;
+      }
+
       .message,
       .warning {
         font-size: 22px;
@@ -219,6 +260,17 @@
 
       <div class="progress">
         <div class="progress-bar" id="progressBar"></div>
+      </div>
+
+      <div class="queue-summary" id="queueSummary">
+        <div class="summary-item">
+          <p class="summary-label">현재 대기 인원</p>
+          <p class="summary-value" id="waitingCountValue">-</p>
+        </div>
+        <div class="summary-item">
+          <p class="summary-label">예상 대기시간</p>
+          <p class="summary-value" id="estimatedWaitValue">-</p>
+        </div>
       </div>
 
       <p class="message" id="message">
@@ -340,6 +392,7 @@
         document.cookie = `queueToken=${data.queueToken}; path=/; SameSite=Lax`;
         document.getElementById("rankValue").textContent = "0";
         document.getElementById("progressBar").style.width = "100%";
+        updateQueueSummary(data);
         document.getElementById("message").innerHTML = "입장이 가능합니다.<br>좌석 선택 페이지로 이동합니다.";
         document.getElementById("warning").classList.add("hidden");
         document.getElementById("seatLink").classList.remove("hidden");
@@ -354,6 +407,7 @@
       const position = data.position ?? "-";
       document.getElementById("rankValue").textContent = position;
       document.getElementById("progressBar").style.width = progressWidth(position);
+      updateQueueSummary(data);
       document.getElementById("message").innerHTML = "현재 접속 인원이 많아 대기중입니다.<br>잠시만 기다려주시면 예매하기 페이지로 연결됩니다.";
       document.getElementById("warning").classList.remove("hidden");
       document.getElementById("seatLink").classList.add("hidden");
@@ -376,7 +430,38 @@
 
       document.getElementById("rankValue").textContent = "-";
       document.getElementById("progressBar").style.width = "1%";
+      document.getElementById("waitingCountValue").textContent = "-";
+      document.getElementById("estimatedWaitValue").textContent = "-";
       document.getElementById("message").innerHTML = message;
+    }
+
+    function updateQueueSummary(data) {
+      const waitingCount = data.waitingCount ?? data.totalQueueCount;
+      document.getElementById("waitingCountValue").textContent = formatCount(waitingCount);
+      document.getElementById("estimatedWaitValue").textContent = formatWaitTime(data.estimatedWaitSeconds);
+    }
+
+    function formatCount(value) {
+      if (!Number.isFinite(Number(value))) {
+        return "-";
+      }
+      return `${Number(value).toLocaleString("ko-KR")}명`;
+    }
+
+    function formatWaitTime(seconds) {
+      const numericSeconds = Number(seconds);
+      if (!Number.isFinite(numericSeconds) || numericSeconds <= 0) {
+        return "-";
+      }
+
+      const minutes = Math.ceil(numericSeconds / 60);
+      if (minutes < 60) {
+        return `약 ${minutes}분`;
+      }
+
+      const hours = Math.floor(minutes / 60);
+      const remainingMinutes = minutes % 60;
+      return remainingMinutes === 0 ? `약 ${hours}시간` : `약 ${hours}시간 ${remainingMinutes}분`;
     }
 
     function progressWidth(position) {

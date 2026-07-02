@@ -142,7 +142,7 @@
     }
 
     .poster {
-      height: 230px;
+      height: 300px;
       background: linear-gradient(135deg, #ddd6fe, #c7d2fe);
       display: flex;
       justify-content: center;
@@ -182,13 +182,45 @@
 
     .show-place {
       color: #6b7280;
-      font-size: 14px;
+      font-size: 15px;
     }
 
     .show-date {
       color: #6b7280;
-      font-size: 13px;
+      font-size: 14px;
       margin-top: 6px;
+    }
+
+    .congestion-badge {
+      display: inline-flex;
+      align-items: center;
+      min-height: 28px;
+      margin-top: 12px;
+      padding: 6px 10px;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 900;
+    }
+
+    .congestion-SMOOTH {
+      background: #ecfdf5;
+      color: #047857;
+    }
+
+    .congestion-NORMAL {
+      background: #fffbeb;
+      color: #b45309;
+    }
+
+    .congestion-VERY_BUSY {
+      background: #fef2f2;
+      color: #b91c1c;
+    }
+
+    .congestion-UPCOMING,
+    .congestion-CLOSED {
+      background: #f3f4f6;
+      color: #4b5563;
     }
 
     .show-price {
@@ -330,7 +362,16 @@
             `;
         }
     }
-
+	 
+    function formatDate(ts) {
+        if (!ts) return "정보 없음";
+        const date = new Date(ts * 1000);
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        return `${year}.${month}.${day}`;
+    }
+    
     async function loadShows() {
         const showGrid = document.getElementById("showGrid");
         const searchInput = document.getElementById("searchInput").value.trim();
@@ -367,18 +408,28 @@
                     }
                     imgHtml = `<div class="poster"><img src="${imgUrl}" alt="${show.title}"></div>`;
                 }
-
+				            
                 card.innerHTML = `
                     ${imgHtml}
                     <div class="show-info">
-                        <div class="show-category">CONCERT</div>
                         <div class="show-title">${show.title}</div>
                         <div class="show-place">${show.venue}</div>
-                        <div class="show-date">2026.07.01</div>
-                        <div class="show-price">150,000원 ~</div>
+                        <div class="show-date" id="showDate-${show.showId}">날짜 불러오는 중...</div>
+                        <div class="congestion-badge congestion-${show.congestionStatus ?? "SMOOTH"}">${show.congestionLabel ?? "원활"}</div>
                     </div>
                 `;
                 showGrid.appendChild(card);
+                
+                fetch(`/api/v1/shows/${show.showId}`)
+                .then(res => res.ok ? res.json() : null)
+                .then(detail => {
+                    const dateEl = document.getElementById(`showDate-${show.showId}`);
+                    if (dateEl) dateEl.innerText = formatDate(detail ? detail.performanceAt : null);
+                })
+                .catch(() => {
+                    const dateEl = document.getElementById(`showDate-${show.showId}`);
+                    if (dateEl) dateEl.innerText = "정보 없음";
+                });
             });
         } catch (error) {
             showGrid.innerHTML = `<p style="grid-column: span 4; text-align: center; color: #6b7280; padding: 40px 0;">서버 연결에 실패했습니다.</p>`;

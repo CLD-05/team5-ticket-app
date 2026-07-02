@@ -22,7 +22,7 @@ spring:
       max-lifetime: 1800000           # 30분. RDS wait_timeout 보다 짧게
       idle-timeout: 600000            # 10분
       pool-name: booking-hikari       # 로그/메트릭 식별용
-
+    replica-url: ${SPRING_DATASOURCE_REPLICA_URL:}
   # redis host/port 는 SPRING_DATA_REDIS_* 환경변수로 주입됨 -> 여기 명시 안 함.
 
   jpa:

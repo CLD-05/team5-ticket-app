@@ -10,7 +10,10 @@ import com.example.ticketing.show.repository.ShowRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Instant;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
@@ -22,7 +25,13 @@ public class ShowService {
     private final ShowRepository showRepository;
     private final SeatGradeRepository seatGradeRepository;
     private final StringRedisTemplate redisTemplate;
-
+    private static final String WAITING_QUEUE_KEY_PREFIX = "queue:waiting:";
+    private static final String ACTIVE_QUEUE_KEY_PREFIX = "queue:active:";
+    private static final int NORMAL_CONGESTION_THRESHOLD = 500;
+    private static final int VERY_BUSY_CONGESTION_THRESHOLD = 2000;
+    private static final ZoneId ZONE_ID = ZoneId.of("Asia/Seoul");
+    
+    @Transactional(readOnly = true)
     public List<ShowListResponseDto> getShows(String keyword) {
 
         List<Show> shows;
@@ -34,10 +43,10 @@ public class ShowService {
         }
 
         return shows.stream()
-                .map(ShowListResponseDto::from)
+                .map(this::toShowListResponse)
                 .toList();
     }
-
+    @Transactional(readOnly = true)
     public ShowDetailResponseDto getShowDetail(Long showId) {
         try {
             redisTemplate.opsForZSet().incrementScore("popular:shows", String.valueOf(showId), 1.0);
@@ -49,25 +58,14 @@ public class ShowService {
                 .orElseThrow(() ->
                         new IllegalArgumentException("공연을 찾을 수 없습니다."));
 
-        String openTimeStr = redisTemplate.opsForValue().get("show:" + showId + ":booking_open_at");
-        String closeTimeStr = redisTemplate.opsForValue().get("show:" + showId + ":booking_close_at");
-        String perfTimeStr = redisTemplate.opsForValue().get("show:" + showId + ":performance_at");
-
-        Long bookingOpenAt = null;
-        Long bookingCloseAt = null;
-        Long performanceAt = null;
-
-        try {
-            if (openTimeStr != null) bookingOpenAt = Long.parseLong(openTimeStr);
-            if (closeTimeStr != null) bookingCloseAt = Long.parseLong(closeTimeStr);
-            if (perfTimeStr != null) performanceAt = Long.parseLong(perfTimeStr);
-        } catch (NumberFormatException e) {
-            // Ignore parse errors
-        }
+        Long bookingOpenAt = show.getBookingOpenAt().atZone(ZONE_ID).toEpochSecond();
+        Long bookingCloseAt = show.getBookingCloseAt().atZone(ZONE_ID).toEpochSecond();
+        Long performanceAt = show.getPerformanceAt().atZone(ZONE_ID).toEpochSecond();
 
         return ShowDetailResponseDto.from(show, bookingOpenAt, bookingCloseAt, performanceAt);
     }
-
+    
+    @Transactional(readOnly = true)
     public SeatMapResponseDto getSeatMap(Long showId) {
 
         Show show = showRepository.findById(showId)
@@ -92,7 +90,7 @@ public class ShowService {
                 )
                 .build();
     }
-
+    @Transactional(readOnly = true)
     public List<ShowListResponseDto> getPopularShows() {
         Set<String> popularShowIds = redisTemplate.opsForZSet().reverseRange("popular:shows", 0, 9);
         if (popularShowIds == null || popularShowIds.isEmpty()) {
@@ -105,7 +103,46 @@ public class ShowService {
         List<Show> sortedShows = new ArrayList<>(shows);
         sortedShows.sort(java.util.Comparator.comparingInt(show -> idsInOrder.indexOf(show.getShowId())));
         return sortedShows.stream()
-                .map(ShowListResponseDto::from)
+                .map(this::toShowListResponse)
                 .toList();
+    }
+
+    private ShowListResponseDto toShowListResponse(Show show) {
+    	CongestionInfo congestionInfo = congestionInfo(show);
+        return ShowListResponseDto.from(show, congestionInfo.status(), congestionInfo.label());
+    }
+
+    private CongestionInfo congestionInfo(Show show) {
+    	long openAt = show.getBookingOpenAt().atZone(ZONE_ID).toEpochSecond();
+        long closeAt = show.getBookingCloseAt().atZone(ZONE_ID).toEpochSecond();
+        long now = Instant.now().getEpochSecond();
+
+        if (now < openAt) {
+            return new CongestionInfo("UPCOMING", "오픈 예정");
+        }
+        if (now > closeAt) {
+            return new CongestionInfo("CLOSED", "예매 마감");
+        }
+
+        long congestionScore = queueCount(WAITING_QUEUE_KEY_PREFIX + show.getShowId()) + queueCount(ACTIVE_QUEUE_KEY_PREFIX + show.getShowId());
+        if (congestionScore >= VERY_BUSY_CONGESTION_THRESHOLD) {
+            return new CongestionInfo("VERY_BUSY", "매우 혼잡");
+        }
+        if (congestionScore >= NORMAL_CONGESTION_THRESHOLD) {
+            return new CongestionInfo("NORMAL", "보통");
+        }
+        return new CongestionInfo("SMOOTH", "원활");
+    }
+
+    private long queueCount(String key) {
+        try {
+            Long count = redisTemplate.opsForZSet().zCard(key);
+            return count == null ? 0 : count;
+        } catch (Exception e) {
+            return 0;
+        }
+    }
+
+    private record CongestionInfo(String status, String label) {
     }
 }
