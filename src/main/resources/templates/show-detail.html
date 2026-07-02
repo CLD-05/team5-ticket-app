@@ -35,8 +35,6 @@
 	  background: #111827;
 	  color: white;
 	  padding: 18px 0; 
-	  position: sticky;
-	  top: 0;
 	  z-index: 100;
 	}
 
@@ -72,6 +70,9 @@
     .main-content {
       margin-top: 50px;
       flex: 1;
+      display: flex;
+      flex-direction: column;
+      width: 100%; 
     }
 
     .detail-grid {
@@ -172,7 +173,7 @@
 
     .show-venue {
       font-size: 16px;
-      color: #666666;
+      color: #111111;
       display: flex;
       align-items: center;
       gap: 6px;
@@ -410,7 +411,7 @@
           <tbody>
             <tr>
               <th>장소</th>
-              <td><div class="show-venue" id="showVenue">Loading...</div></td>
+              <td><div class="show-venue" id="showVenue" style="font-weight: 700;">Loading...</div></td>
             </tr>
             <tr>
               <th>일시</th>
@@ -432,11 +433,36 @@
           </tbody>
         </table>
 		</div> </div> <div class="card action-panel" style="margin-top: 40px; width: 100%;">
-	      <div class="countdown-container hidden" id="countdownBox">
-	        <div class="countdown-title">예매 오픈 전 입니다.</div>
-	        <div class="countdown-timer" id="timerDisplay">00:00:00</div>
-	      </div>
+	      <div class="countdown-container hidden" id="countdownBox" style="padding: 35px 20px; flex-direction: column;">
+	        
+            <div id="statusTitleBox" style="display: block; text-align: center; width: 100%;">
+              <div class="countdown-title">예매 오픈 전 입니다.</div>
+              <div class="countdown-timer" id="timerDisplay">00:00:00</div>
+            </div>
 
+            <div id="bookingInterface" class="hidden" style="width: 100%; text-align: left;">
+              
+			<div style="display: grid; grid-template-columns: 1fr 1fr 1.2fr; width: 100%; padding-bottom: 12px; border-bottom: 1px solid #e5e7eb; margin-bottom: 20px;">
+              <div style="font-size: 15px; font-weight: 700; color: #111111; text-align: center;">날짜 선택</div>
+              <div style="font-size: 15px; font-weight: 700; color: #111111; text-align: center;">시간 선택</div>
+              <div style="font-size: 15px; font-weight: 700; color: #111111; text-align: center;">좌석 현황</div>
+            </div>
+
+			<div style="display: grid; grid-template-columns: 1fr 1fr 1.2fr; width: 100%; min-height: 100px;">       
+			  <div style="padding: 0 24px; border-right: 1px solid #e5e7eb;">
+                <div id="dynamicDateVal" style="border: 1px solid #222222; color: #222222; padding: 12px; border-radius: 4px; font-weight: 700; text-align: center; font-size: 14px; background: #ffffff; width: 100%;">-</div>
+            </div>
+                
+			<div style="padding: 0 24px; border-right: 1px solid #e5e7eb;">
+              <div id="dynamicTimeVal" style="border: 1px solid #222222; color: #222222; padding: 12px; border-radius: 4px; font-weight: 700; text-align: center; font-size: 14px; background: #ffffff; width: 100%;">-</div>
+            </div>
+                
+			<div style="padding: 0 24px; max-height: 120px; overflow-y: auto;">
+              <div id="dynamicSeatVal" style="font-size: 14px; color: #222222; line-height: 1.8; font-weight: 500;"></div>
+            </div>
+           </div>
+	      </div>
+		 </div>
           <div style="display: flow-root; width: 100%;">
         	<button class="book-btn btn-disabled" id="bookBtn" disabled>
             	상태 조회 중...
@@ -581,13 +607,20 @@
             console.error(e);
         }
     }
-
+	
+    function pickField(obj, keys) {
+        for (const key of keys) {
+            if (obj[key] !== undefined && obj[key] !== null) return obj[key];
+        }
+        return null;
+    }
+    
     async function fetchSeatDetails() {
         const priceListVal = document.getElementById("priceListVal");
         if (!priceListVal) return;
 
         try {
-            const response = await fetch(`/api/v1/shows/${showId}/seats`);
+        	const response = await fetch(`/api/v1/shows/${showId}/seats`);
             
             if (!response.ok) {
                 priceListVal.innerHTML = `<span>정보를 불러오지 못했습니다. (에러 코드: ${response.status})</span>`;
@@ -603,18 +636,63 @@
             }
 
             priceListVal.innerHTML = "";
+            if (dynamicSeatVal) dynamicSeatVal.innerHTML = "";
+            
             grades.forEach(grade => {
                 const priceFormatted = grade.price.toLocaleString('ko-KR') + "원";
-                const priceLine = document.createElement("div");
-                priceLine.style.display = "block";
-                priceLine.style.marginBottom = "8px";
-                priceLine.style.fontSize = "15px";
-                
-                priceLine.innerHTML = `
+
+                const upperLine = document.createElement("div");
+                upperLine.style.display = "block";
+                upperLine.style.marginBottom = "8px";
+                upperLine.style.fontSize = "15px";
+                upperLine.innerHTML = `
                     <span style="display: inline-block; width: 60px; font-weight: 700; color: #222;">${grade.gradeName}석</span>
                     <span style="font-weight: 900; color: #111111;">${priceFormatted}</span>
                 `;
-                priceListVal.appendChild(priceLine);
+                priceListVal.appendChild(upperLine);
+
+                if (dynamicSeatVal) {
+                    const lowerLine = document.createElement("div");
+                    lowerLine.style.display = "flex";
+                    lowerLine.style.justifyContent = "space-between";
+                    lowerLine.style.alignItems = "center";
+                    lowerLine.style.marginBottom = "8px";
+                    lowerLine.style.fontSize = "15px";
+                    lowerLine.style.width = "100%";
+					
+                    const totalSeats = pickField(grade, ["totalSeats", "totalSeatCount", "totalCount", "seatCount"]);
+                    const remainingSeats = pickField(grade, ["remainingSeats", "remainingSeatCount", "remainingCount", "remainedSeats", "availableSeats"]);
+
+                    let totalText = totalSeats !== null ? `${totalSeats}석` : "";
+                    let remainingText = "";
+                    let remainingColor = "#dc2626";
+
+                    if (remainingSeats !== null) {
+                        if (remainingSeats <= 0) {
+                            remainingText = "매진";
+                            remainingColor = "#9ca3af";
+                        } else {
+                            remainingText = `${remainingSeats}석`;
+                        }
+                    } else {
+                        remainingText = "-";
+                        remainingColor = "#9ca3af";
+                    }
+
+                    lowerLine.style.display = "grid";
+                    lowerLine.style.gridTemplateColumns = "60px 1fr";
+                    lowerLine.style.alignItems = "center";
+
+                    lowerLine.innerHTML = `
+                        <span style="font-weight: 700; color: #222; text-align: left;padding-left: 20px;">${grade.gradeName}석</span>
+                        <div style="display: flex; justify-content: flex-end; align-items: center; gap: 12px; padding-right: 20px;">
+                            <span style="color: #222;">${totalText}</span>
+                            <span style="color: #9ca3af;">/</span>
+                            <span style="font-weight: 700; color: ${remainingColor};">${remainingText}</span>
+                        </div>
+                    `;
+                    dynamicSeatVal.appendChild(lowerLine);
+                }
             });
 
         } catch (e) {
@@ -660,11 +738,19 @@
         const timerDisplay = document.getElementById("timerDisplay");
         const countdownTitle = countdownBox ? countdownBox.querySelector(".countdown-title") : null;
 
+        const statusTitleBox = document.getElementById("statusTitleBox");
+        const bookingInterface = document.getElementById("bookingInterface");
+        const dynamicDateVal = document.getElementById("dynamicDateVal");
+        const dynamicSeatVal = document.getElementById("dynamicSeatVal");
+        const priceListVal = document.getElementById("priceListVal");
+        
         const now = Math.floor(Date.now() / 1000);
 
         // 1. 아직 오픈 전인 경우
         if (bookingOpenAt && now < bookingOpenAt) {
             countdownBox.classList.remove("hidden");
+            if (statusTitleBox) statusTitleBox.style.display = "block";    
+            if (bookingInterface) bookingInterface.style.display = "none";
             if (countdownTitle) countdownTitle.innerText = "예매 오픈 전 입니다. ";
             timerDisplay.style.display = "inline-block"; 
             
@@ -683,6 +769,26 @@
         // 2. 예매 진행 중인 경우 (오픈 후 ~ 마감 전)
         else if (bookingOpenAt && (!bookingCloseAt || now < bookingCloseAt)) {
             countdownBox.classList.add("hidden");
+            if (statusTitleBox) statusTitleBox.style.display = "none";
+            if (bookingInterface) {          
+                bookingInterface.style.display = "grid";                  
+                
+                const perfDate = new Date(performanceAt * 1000);
+                if (dynamicDateVal) {
+                    const year = perfDate.getFullYear();
+                    const month = String(perfDate.getMonth() + 1).padStart(2, '0');
+                    const day = String(perfDate.getDate()).padStart(2, '0');
+                    const weekday = perfDate.toLocaleDateString('ko-KR', { weekday: 'long' });
+                    
+                    dynamicDateVal.innerText = `${year}년 ${month}월 ${day}일 ${weekday}`;
+                }
+                const hours = String(perfDate.getHours()).padStart(2, '0');
+                const minutes = String(perfDate.getMinutes()).padStart(2, '0');
+                const dynamicTimeVal = document.getElementById("dynamicTimeVal");
+                if (dynamicTimeVal) {
+                    dynamicTimeVal.innerText = `${hours}시 ${minutes}분`;
+                }
+            }
             bookBtn.className = "book-btn btn-active";
             bookBtn.innerText = "예매하기";
             bookBtn.disabled = false;
@@ -692,6 +798,8 @@
         // 3. 예매 마감된 경우 
         else {
             countdownBox.classList.remove("hidden"); 
+            if (statusTitleBox) statusTitleBox.style.display = "block";    
+            if (bookingInterface) bookingInterface.style.display = "none";
             if (countdownTitle) countdownTitle.innerText = "예매가 마감되었습니다."; 
             timerDisplay.style.display = "none"; 
             
