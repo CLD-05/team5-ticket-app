@@ -1,6 +1,7 @@
 package com.example.ticketing.global.security;
 
 import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.JwtParser;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
 import io.jsonwebtoken.security.Keys;
@@ -25,10 +26,14 @@ public class JwtTokenProvider {
     private long expirationMs;
 
     private Key key;
+    // parser를 매 요청 build 하면 JCA provider 조회가 fat jar UrlJarFiles 캐시 락을 타
+    // 고부하에서 스레드가 직렬화된다. 불변·스레드안전 객체이므로 1회만 build 해 재사용.
+    private JwtParser parser;
 
     @PostConstruct
     protected void init() {
         this.key = Keys.hmacShaKeyFor(secretKey.getBytes());
+        this.parser = Jwts.parserBuilder().setSigningKey(key).build();
     }
 
     public String createToken(String userId, String email) {
@@ -47,16 +52,14 @@ public class JwtTokenProvider {
     }
 
     public String getUserIdFromToken(String token) {
-        return Jwts.parserBuilder()
-                .setSigningKey(key)
-                .build()
+        return parser
                 .parseClaimsJws(token)
                 .getBody()
                 .getSubject();
     }
 
     public boolean validateToken(String token) {
-        Jwts.parserBuilder().setSigningKey(key).build().parseClaimsJws(token);
+        parser.parseClaimsJws(token);
         // TODO: Redis 블랙리스트 체크 로직 추가 가능
         return true;
     }
