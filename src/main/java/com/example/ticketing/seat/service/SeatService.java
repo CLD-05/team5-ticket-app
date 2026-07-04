@@ -29,6 +29,18 @@ public class SeatService {
     @Value("${app.seat.hold-ttl-seconds:300}")
     private long holdTtlSeconds;
 
+    // 매 요청 new DefaultRedisScript 생성은 SHA1 재계산 낭비. 불변·스레드안전이므로 1회만 생성해 재사용.
+    private static final String HOLD_LUA =
+            "local holder = redis.call('get', KEYS[1]) " +
+            "if not holder or holder == ARGV[1] then " +
+            "  redis.call('set', KEYS[1], ARGV[1], 'EX', ARGV[2]) " +
+            "  return 1 " +
+            "else " +
+            "  return 0 " +
+            "end";
+    private static final DefaultRedisScript<Long> HOLD_SCRIPT =
+            new DefaultRedisScript<>(HOLD_LUA, Long.class);
+
     @Transactional(readOnly = true)
     public List<SeatResponseDto> getSeats(Long showId, String userId) {
         List<Seat> seats = seatRepository.findByShowId(showId);
@@ -82,17 +94,8 @@ public class SeatService {
             throw new ConflictException(ErrorCode.SEAT_ALREADY_SOLD);
         }
  
-        String luaScript =
-            "local holder = redis.call('get', KEYS[1]) " +
-            "if not holder or holder == ARGV[1] then " +
-            "  redis.call('set', KEYS[1], ARGV[1], 'EX', ARGV[2]) " +
-            "  return 1 " +
-            "else " +
-            "  return 0 " +
-            "end";
- 
         Long result = redisTemplate.execute(
-            new DefaultRedisScript<>(luaScript, Long.class),
+            HOLD_SCRIPT,
             List.of(key),
             userId, String.valueOf(holdTtlSeconds)
         );
