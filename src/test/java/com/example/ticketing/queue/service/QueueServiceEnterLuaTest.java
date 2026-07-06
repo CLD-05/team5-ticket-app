@@ -51,7 +51,7 @@ class QueueServiceEnterLuaTest {
         queueService = new QueueService(redisTemplate);
         ReflectionTestUtils.setField(queueService, "maxActiveUsers", 2);
         ReflectionTestUtils.setField(queueService, "promotionBatchSize", 10);
-        ReflectionTestUtils.setField(queueService, "estimatedAdmissionRatePerMinute", 100L);
+        ReflectionTestUtils.setField(queueService, "promotionIntervalMs", 1000L);
         ReflectionTestUtils.setField(queueService, "queueTokenBypass", false);
     }
 
