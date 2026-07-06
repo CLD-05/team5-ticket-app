@@ -103,6 +103,9 @@ public class QueueService {
             "redis.call('SADD', KEYS[3], ARGV[5]) " +
             "local nr = redis.call('ZRANK', KEYS[2], ARGV[1]) " +
             "return {2, nr + 1, waitingCnt + 1, activeCnt}";
+    // 매 요청 new DefaultRedisScript 생성은 SHA1 재계산 낭비. 불변·스레드안전이므로 1회만 생성해 재사용.
+    private static final DefaultRedisScript<java.util.List> ENTER_SCRIPT =
+            new DefaultRedisScript<>(ENTER_LUA, java.util.List.class);
 
     /**
      * promote 배치를 원자화한 Lua. waiting 상위 N명을 active로 한 번에 승급한다.
@@ -134,6 +137,8 @@ public class QueueService {
             "  redis.call('SREM', KEYS[3], ARGV[3]) " +
             "end " +
             "return n";
+    private static final DefaultRedisScript<Long> PROMOTE_SCRIPT =
+            new DefaultRedisScript<>(PROMOTE_LUA, Long.class);
 
     /**
      * ACTIVE 토큰 발급을 원자화한 Lua. 기존 issueQueueToken의 Redis 4회 왕복
@@ -154,6 +159,8 @@ public class QueueService {
             "redis.call('SET', KEYS[2], ARGV[3], 'EX', tonumber(ARGV[5])) " +
             "redis.call('SET', KEYS[3], ARGV[4], 'EX', tonumber(ARGV[5])) " +
             "return ARGV[3]";
+    private static final DefaultRedisScript<String> TOKEN_SCRIPT =
+            new DefaultRedisScript<>(TOKEN_LUA, String.class);
 
     /**
      * enterQueue: synchronized 제거. 진입 판정은 ENTER_LUA가 원자적으로 수행한다.
@@ -164,7 +171,7 @@ public class QueueService {
 
         @SuppressWarnings("unchecked")
         java.util.List<Long> result = redisTemplate.execute(
-                new DefaultRedisScript<>(ENTER_LUA, java.util.List.class),
+                ENTER_SCRIPT,
                 java.util.List.of(activeQueueKey(showId), waitingQueueKey(showId), ACTIVE_SHOWS_KEY),
                 userId,
                 String.valueOf(Instant.now().toEpochMilli()),
@@ -317,7 +324,7 @@ public class QueueService {
 
         // 배치 승급 + 레지스트리 정리를 PROMOTE_LUA 한 번으로 (기존 Redis 3N회 왕복 → 1회)
         redisTemplate.execute(
-                new DefaultRedisScript<>(PROMOTE_LUA, Long.class),
+                PROMOTE_SCRIPT,
                 java.util.List.of(waitingQueueKey, activeQueueKey, ACTIVE_SHOWS_KEY),
                 String.valueOf(slots),
                 String.valueOf(activeExpiresAt()),
@@ -383,7 +390,7 @@ public class QueueService {
         // Lua가 기존 토큰 있으면 그것을, 없으면 넘긴 신규를 저장·반환한다.
         String newToken = UUID.randomUUID().toString();
         String used = redisTemplate.execute(
-                new DefaultRedisScript<>(TOKEN_LUA, String.class),
+                TOKEN_SCRIPT,
                 java.util.List.of(activeQueueKey(showId), userTokenKey(showId, userId), tokenKey(newToken)),
                 userId,
                 String.valueOf(activeExpiresAt()),
