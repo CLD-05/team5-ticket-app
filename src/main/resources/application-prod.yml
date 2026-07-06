@@ -61,7 +61,11 @@ spring:
 
 app:
   seat:
-    hold-ttl-seconds: 10
+    # hold-ttl 10 → 300초 (2026-07-06). 서비스 좌석 선점 정책은 5분(300s)인데
+    # prod 설정이 10초로 어긋나 있었음(정책-구현 불일치 버그). 부하 시 enter/hold가
+    # CPU throttle로 느려져(enter p95 30s) booking 도달 전 10초 만료 → booking_conflict
+    # 폭증(booked=0). 서비스 정책값(300s)으로 정정 → 코드 기본값과도 일치.
+    hold-ttl-seconds: 300
 
 # Actuator/Micrometer -> Prometheus 노출 (ServiceMonitor가 scrape)
 management:
