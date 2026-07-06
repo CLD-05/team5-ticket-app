@@ -65,6 +65,14 @@ app:
 
 # Actuator/Micrometer -> Prometheus 노출 (ServiceMonitor가 scrape)
 management:
+  # === Spring Security observation 계측 비활성화 (2026-07-06, CPU 병목) ===
+  # 50k 부하 CPU 프로파일에서 http-nio 스레드 220+개가 ObservationFilterChainDecorator에 몰림.
+  # Security 필터 체인이 매 요청·매 필터마다 Observation을 생성/기록 → 2코어 풀포화의 주범.
+  # enter는 순수 Redis(경량)인데 이 계측 오버헤드가 CPU를 다 태워 p95 60s 유발.
+  # spring.security observation만 off (다른 http.server.requests 메트릭은 유지).
+  observations:
+    enable:
+      spring.security: false
   endpoints:
     web:
       exposure:
