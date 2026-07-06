@@ -23,15 +23,19 @@ server:
 spring:
   datasource:
     # url/username/password 는 SPRING_DATASOURCE_* 환경변수(ESO)로 주입됨 -> 여기 명시 안 함.
-    # === HikariCP 커넥션 풀 산정 (prod: RDS db.m6i.large) ===
-    # m6i.large max_connections ≈ 1365 (t3.small 150 대비 충분히 큼)
-    #   worker KEDA maxReplicaCount(20) × pool(8) = 160 이론 최대
-    #   -> RDS Proxy 멀티플렉싱으로 완충, RDS 실제 커넥션은 한계(1365) 내 안전
-    #   dev(t3.small)에서 pool 8 로 검증된 값을 prod 에서도 유지 (여유 더 큼)
-    # ⚠️ Proxy 담당과 정합성 확인: 앱 이론최대(160) vs Proxy->RDS 상한 vs RDS(1365)
+    # === HikariCP 커넥션 풀 재산정 (실측 기반, 2026-07-06) ===
+    # [실측] RDS max_connections = 633 (SHOW VARIABLES, 이전 주석 1365는 추정치였음)
+    # [실측] 부하 피크 Max_used_connections = 155 (앱 이론 280 -> Proxy 멀티플렉싱 ~0.55)
+    #        -> 부하 시 RDS 사용률 155/633 = 24.5% (RDS 자체는 병목 아님)
+    # [산정] 소비자 = ticket-service(HPA max15) + booking-worker(KEDA max20) = 35 pod
+    #        pool 12: 앱 이론 35×12=420 -> RDS 실제 ~231 (633의 37%, 안전선 내)
+    # [주] pending 적체의 근본 원인은 booking 경로의 매 요청 seat->show DB 조회였음.
+    #      -> BookingService 로컬 캐시로 조회 자체를 제거(주 처방). pool 상향은 보조.
+    # ⚠️ pool 상향 후 재부하로 Max_used_connections 재실측 필수 (Proxy 비율 변동 확인)
+    # ⚠️ 김시현(prod 배포 승인)/RDS Proxy 담당과 정합성 확인 후 머지
     hikari:
-      maximum-pool-size: 8            # Pod당 상한 (스케일 시 ×Pod수 = RDS 부하)
-      minimum-idle: 2                 # 유휴 커넥션 최소 (과다 점유 방지)
+      maximum-pool-size: 12           # 8->12. RDS 실측 기반 상향 (보조 처방)
+      minimum-idle: 4                 # 2->4. pool 확대에 맞춰 유휴 여유 상향
       connection-timeout: 3000        # 풀 고갈 시 3초 후 실패 (무한대기 금지 -> 적체 가시화)
       max-lifetime: 1800000           # 30분. RDS wait_timeout 보다 짧게
       idle-timeout: 600000            # 10분

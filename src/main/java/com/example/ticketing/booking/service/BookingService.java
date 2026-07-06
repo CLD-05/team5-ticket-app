@@ -21,6 +21,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
 @Service
@@ -36,9 +37,19 @@ public class BookingService {
     @Value("${app.sqs.booking-queue:booking-queue}")
     private String bookingQueue;
 
+    // seat_id -> show_id 로컬 캐시.
+    // 좌석의 소속 공연(show)은 불변이므로 만료 없이 영구 캐시 가능.
+    // requestBooking 진입 시 매 요청 DB 조회(findShowIdBySeatId)를 제거하여
+    // booking-hikari 커넥션 풀 경합(pending 적체)의 근본 원인을 없앤다.
+    private final ConcurrentHashMap<Long, Long> seatShowCache = new ConcurrentHashMap<>();
+
     public BookingAcceptResponse requestBooking(Long seatId, String userId, String queueToken) {
-        Long showId = seatRepository.findShowIdBySeatId(seatId)
-                .orElseThrow(() -> new NotFoundException("좌석이 존재하지 않습니다."));
+        // 캐시 우선 조회: 미스일 때만 DB 1회, 이후 동일 seatId는 캐시 히트(불변 데이터).
+        // computeIfAbsent 는 seatId 단위로 락이 분산되고, 미스는 좌석당 최초 1회뿐이라
+        // 매처(전 요청이 단일 노드 경쟁) 케이스와 달리 락 경합이 사실상 없다.
+        Long showId = seatShowCache.computeIfAbsent(seatId, id ->
+                seatRepository.findShowIdBySeatId(id)
+                        .orElseThrow(() -> new NotFoundException("좌석이 존재하지 않습니다.")));
 
         // 서비스 계층에서 Queue Token을 한 번 더 검증
         queueService.validateQueueToken(queueToken, showId, userId);
