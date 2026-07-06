@@ -7,7 +7,10 @@
 #   - HikariCP 커넥션 풀 상한 (DB 보호 핵심)
 spring:
   datasource:
-    # url/username/password 는 SPRING_DATASOURCE_* 표준 환경변수(ESO)로 자동 주입되므로 명시하지 않음
+    # ⚠️ RDS 직접이 아니라 RDS Proxy 엔드포인트로. (Proxy 담당이 엔드포인트 제공)
+    url: jdbc:mysql://${DB_HOST}:3306/ticketing?useSSL=true&serverTimezone=Asia/Seoul&characterEncoding=UTF-8
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}          # ESO로 주입 (평문 금지)
 
     # === HikariCP 커넥션 풀 산정 ===
     # 전제: RDS db.t3.small (max_connections ≈ 150)
@@ -24,7 +27,9 @@ spring:
       pool-name: booking-hikari       # 로그/메트릭 식별용
 
   data:
-    # redis host/port 는 SPRING_DATA_REDIS_* 표준 환경변수로 자동 주입되므로 명시하지 않음
+    redis:
+      host: ${REDIS_HOST}             # ElastiCache Primary 엔드포인트
+      port: 6379
 
   cloud:
     aws:
