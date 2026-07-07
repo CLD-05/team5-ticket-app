@@ -34,8 +34,8 @@ spring:
     # ⚠️ pool 상향 후 재부하로 Max_used_connections 재실측 필수 (Proxy 비율 변동 확인)
     # ⚠️ 김시현(prod 배포 승인)/RDS Proxy 담당과 정합성 확인 후 머지
     hikari:
-      maximum-pool-size: 12           # 8->12. RDS 실측 기반 상향 (보조 처방)
-      minimum-idle: 4                 # 2->4. pool 확대에 맞춰 유휴 여유 상향
+      maximum-pool-size: 30           # 8->12. RDS 실측 기반 상향 (보조 처방)
+      minimum-idle: 8                 # 2->4. pool 확대에 맞춰 유휴 여유 상향
       connection-timeout: 3000        # 풀 고갈 시 3초 후 실패 (무한대기 금지 -> 적체 가시화)
       max-lifetime: 1800000           # 30분. RDS wait_timeout 보다 짧게
       idle-timeout: 600000            # 10분
