@@ -328,6 +328,7 @@
         let countdownInterval = null;
         let currentSelectedSeatId = null;
         let isHolding = false;   // 선점 처리 중이면 폴링이 화면을 덮어쓰지 않도록 가드
+        let isRedirecting = false; // 예매 완료 후 리다이렉트 중일 때 폴링 차단용 플래그
 
         function getAccessToken() {
             return localStorage.getItem("accessToken");
@@ -366,8 +367,8 @@
         }
 
         async function fetchSeats() {
-            // 선점 처리 중에는 폴링 갱신 스킵 (클릭 씹힘 방지)
-            if (isHolding) return;
+            // 선점 처리 중이나 페이지 이동 중에는 폴링 갱신 스킵
+            if (isHolding || isRedirecting) return;
             try {
                 const response = await fetch(`/api/v1/performances/${performanceId}/seats`, {
                     headers: authHeaders()
@@ -567,6 +568,7 @@
                     method: 'POST', headers: authHeaders()
                 });
                 if (response.status === 202) {
+                    isRedirecting = true; // 더 이상 대기열/좌석 정보 폴링을 요청하지 않음 (토큰 삭제로 인한 만료 에러 방지)
                     const data = await response.json();
                     document.getElementById('status-bar').textContent = "결제 요청이 접수되었습니다. 대기 페이지로 이동합니다...";
                     setTimeout(() => {

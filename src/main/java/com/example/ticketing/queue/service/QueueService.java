@@ -155,7 +155,11 @@ public class QueueService {
     private static final String TOKEN_LUA =
             "redis.call('ZADD', KEYS[1], ARGV[2], ARGV[1]) " +
             "local existing = redis.call('GET', KEYS[2]) " +
-            "if existing then return existing end " +
+            "if existing then " +
+            "  redis.call('EXPIRE', KEYS[2], tonumber(ARGV[5])) " +
+            "  redis.call('EXPIRE', 'queue:token:' .. existing, tonumber(ARGV[5])) " +
+            "  return existing " +
+            "end " +
             "redis.call('SET', KEYS[2], ARGV[3], 'EX', tonumber(ARGV[5])) " +
             "redis.call('SET', KEYS[3], ARGV[4], 'EX', tonumber(ARGV[5])) " +
             "return ARGV[3]";
@@ -271,6 +275,11 @@ public class QueueService {
         if (tokenMismatch || ownerMismatch || inactiveUser) {
             throw new BusinessException(ErrorCode.INVALID_QUEUE_TOKEN);
         }
+
+        // 토큰 검증 성공 시, 활성 상태 유지를 위해 만료 시간 연장 (Sliding Window)
+        redisTemplate.opsForZSet().add(activeQueueKey(showId), userId, activeExpiresAt());
+        redisTemplate.expire(userTokenKey(showId, userId), QUEUE_TOKEN_TTL);
+        redisTemplate.expire(tokenKey(token), QUEUE_TOKEN_TTL);
     }
 
     // promote 전용 락. enterQueue/getStatus와 'this' 락을 공유하지 않아
