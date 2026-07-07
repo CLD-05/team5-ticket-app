@@ -50,9 +50,14 @@ public class AwsSqsConfig {
                 .build();
     }
 
-	@Bean
+    @Bean
     public SqsMessageListenerContainerFactory<Object> defaultSqsListenerContainerFactory(SqsAsyncClient sqsAsyncClient) {
         return SqsMessageListenerContainerFactory.builder()
+                .configure(options -> options
+                        .maxConcurrentMessages(40)        // 기본 10 → 40 (파드당 동시 처리)
+                        .maxMessagesPerPoll(10)            // 폴당 배치 (SQS max 10)
+                        .maxDelayBetweenPolls(java.time.Duration.ofSeconds(1))
+                )
                 .sqsAsyncClient(sqsAsyncClient)
                 .build();
     }
