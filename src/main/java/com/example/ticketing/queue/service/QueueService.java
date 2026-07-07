@@ -39,8 +39,8 @@ public class QueueService {
     @Value("${queue.promotion-batch-size:100}")
     private int promotionBatchSize;
 
-    @Value("${queue.estimated-admission-rate-per-minute:100}")
-    private long estimatedAdmissionRatePerMinute;
+    @Value("${queue.promotion-interval-ms:1000}")
+    private long promotionIntervalMs = 1000;
 
     // ⚠️ 부하테스트(A 방식) 전용: 큐토큰 검증 우회 스위치.
     //    기본 false. dev/loadtest 프로파일에서만 QUEUE_TOKEN_BYPASS=true 로 켤 것.
@@ -374,10 +374,12 @@ public class QueueService {
     }
 
     private Long estimateWaitSeconds(Long position) {
-        if (position == null || estimatedAdmissionRatePerMinute <= 0) {
+        if (position == null || promotionBatchSize <= 0 || promotionIntervalMs <= 0) {
             return null;
         }
-        return Math.max(1, (long) Math.ceil(position * 60.0 / estimatedAdmissionRatePerMinute));
+
+        double admissionPerSecond = promotionBatchSize * (1000.0 / promotionIntervalMs);
+        return Math.max(1, (long) Math.ceil(position / admissionPerSecond));
     }
 
     private double activeExpiresAt() {
