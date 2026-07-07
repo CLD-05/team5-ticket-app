@@ -57,15 +57,38 @@
         </dependency>
 
         <!-- AWS SQS -->
+        <!-- commons-logging exclude: spring-cloud-aws가 유입하는 commons-logging의
+             WeakHashtable.get(synchronized) 락이 고부하 enter 경로(RedisTemplate.execute)에서
+             400스레드를 직렬화 → 클래스패스에서 제거하고 jcl-over-slf4j로 대체 -->
         <dependency>
             <groupId>io.awspring.cloud</groupId>
             <artifactId>spring-cloud-aws-starter-sqs</artifactId>
+            <exclusions>
+                <exclusion>
+                    <groupId>commons-logging</groupId>
+                    <artifactId>commons-logging</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
 
         <!-- AWS S3 -->
         <dependency>
             <groupId>io.awspring.cloud</groupId>
             <artifactId>spring-cloud-aws-starter-s3</artifactId>
+            <exclusions>
+                <exclusion>
+                    <groupId>commons-logging</groupId>
+                    <artifactId>commons-logging</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+
+        <!-- JCL → SLF4J/logback 브리지: commons-logging exclude 후 JCL API 호출을
+             logback으로 라우팅. WeakHashtable(synchronized) 락 경로 자체가 사라짐.
+             enter RedisTemplate.execute + 전역 로깅 경로에서 락 제거 (문서 처방 B). -->
+        <dependency>
+            <groupId>org.slf4j</groupId>
+            <artifactId>jcl-over-slf4j</artifactId>
         </dependency>
 
         <!-- Security & JWT -->
