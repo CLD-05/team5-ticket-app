@@ -1,3 +1,7 @@
+* 📦 **App 레포** : [team5-ticket-app](https://github.com/CLD-05/team5-ticket-app)
+* ⚙️ **Config 레포** : [team5-ticket-config](https://github.com/CLD-05/team5-ticket-config)
+* 🛠️ **Infra 레포** : [team5-ticket-infra](https://github.com/CLD-05/team5-ticket-infra)
+
 # Ticket Wave (team5-ticket-app)
 
 > High-Concurrency Ticket Reservation Backend  
